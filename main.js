@@ -13,16 +13,23 @@ const { registerCallbackHandlers } = require("./src/handlers/callbacks");
 const { registerMessageHandlers } = require("./src/handlers/messages");
 const { registerSystemHandlers } = require("./src/handlers/system");
 
-initDatabase();
+(async () => {
+  try {
+    await initDatabase();
 
-const bot = createBot();
+    const bot = createBot();
 
-console.log("🎉 Bot started!");
-console.log("Channel ID:", CONFIG.CHANNEL_ID);
-console.log("Channel Username:", CONFIG.CHANNEL_USERNAME);
+    console.log("🎉 Bot started!");
+    console.log("Channel ID:", CONFIG.CHANNEL_ID);
+    console.log("Channel Username:", CONFIG.CHANNEL_USERNAME);
 
-setBotCommands(bot);
-registerCommandHandlers(bot);
-registerCallbackHandlers(bot);
-registerMessageHandlers(bot);
-registerSystemHandlers(bot);
+    await setBotCommands(bot);
+    registerCommandHandlers(bot);
+    registerCallbackHandlers(bot);
+    registerMessageHandlers(bot);
+    registerSystemHandlers(bot);
+  } catch (error) {
+    console.error("Failed to bootstrap application:", error);
+    process.exit(1);
+  }
+})();

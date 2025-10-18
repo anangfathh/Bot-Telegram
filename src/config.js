@@ -1,13 +1,22 @@
 const CONFIG = {
   TOKEN: process.env.TELEGRAM_BOT_TOKEN,
   CHANNEL_ID: process.env.TELEGRAM_CHANNEL_ID,
-  CHANNEL_USERNAME: "@cobaanjem",
+  CHANNEL_USERNAME: process.env.TELEGRAM_CHANNEL_USERNAME || "@cobaanjem",
 };
 
 const STATES = {
   IDLE: "idle",
   SELECTING_CATEGORY: "selecting_category",
   WAITING_MESSAGE: "waiting_message",
+};
+
+const DATABASE = {
+  HOST: process.env.DB_HOST || "localhost",
+  PORT: Number(process.env.DB_PORT || 3306),
+  USER: process.env.DB_USER || "root",
+  PASSWORD: process.env.DB_PASSWORD || "",
+  NAME: process.env.DB_NAME || "mager_bot",
+  CONNECTION_LIMIT: Number(process.env.DB_CONNECTION_LIMIT || 10),
 };
 
 const CALLBACK_DATA = {
@@ -41,4 +50,5 @@ module.exports = {
   STATES,
   CALLBACK_DATA,
   CATEGORIES,
+  DATABASE,
 };

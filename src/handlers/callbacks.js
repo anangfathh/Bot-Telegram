@@ -130,14 +130,24 @@ function registerCallbackHandlers(bot) {
     const userId = query.from.id;
     const messageId = query.message.message_id;
 
+    await bot.answerCallbackQuery(query.id, { text: "Memuat riwayat...", show_alert: false }).catch(() => {});
+
+    await bot.editMessageText("⏳ Memuat riwayat posting...", {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: "HTML",
+    });
+
     let myMagersText;
     try {
       myMagersText = await getMyMagersMessage(userId);
     } catch (error) {
       console.error("Failed to load My Magers history:", error);
-      await bot.answerCallbackQuery(query.id, {
-        text: "Gagal memuat riwayat posting.",
-        show_alert: true,
+      await bot.editMessageText("⚠️ Gagal memuat riwayat posting. Silakan coba lagi.", {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: "HTML",
+        reply_markup: buildMagerMenuKeyboard(true),
       });
       return;
     }
@@ -153,8 +163,6 @@ function registerCallbackHandlers(bot) {
         ],
       },
     });
-
-    await bot.answerCallbackQuery(query.id);
   }
 
   async function handleFeatureNotAvailable(query) {
