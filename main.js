@@ -1,139 +1,251 @@
 // ===============================
 // Telegram Channel Forwarding Bot
+// Clean Code Architecture
 // ===============================
 
 const TelegramBot = require("node-telegram-bot-api");
 require("dotenv").config();
 
-// === Konfigurasi ===
-const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID; // contoh: -1001234567890
+// ========================================
+// CONFIGURATION & CONSTANTS
+// ========================================
 
-const bot = new TelegramBot(TOKEN, { polling: true });
+const CONFIG = {
+  TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+  CHANNEL_ID: process.env.TELEGRAM_CHANNEL_ID,
+  CHANNEL_USERNAME: "@cobaanjem",
+};
 
-// Map untuk menyimpan state user yang menunggu input
-const waitingForForward = new Map();
-
-// State management untuk tracking posisi user di menu
-const userStates = new Map();
 const STATES = {
   IDLE: "idle",
   SELECTING_CATEGORY: "selecting_category",
   WAITING_MESSAGE: "waiting_message",
 };
 
-// Debug startup
+const CALLBACK_DATA = {
+  MENU_MAGER: "menu_mager",
+  POST_MAGER: "post_mager",
+  MY_MAGERS: "my_magers",
+  CLOSE_MAGER: "close_mager",
+  EDIT_POST: "edit_post",
+  CHECK_PRICE: "check_price",
+  RATING: "rating",
+  CHECK_VERIFIED: "check_verified",
+  BACK_TO_MAIN: "back_to_main",
+  BACK_TO_MAGER: "back_to_mager",
+  CLOSE_MENU: "close_menu",
+  CHECK_MEMBERSHIP: "check_membership",
+  CATEGORY_ANJEM: "category_anjem",
+  CATEGORY_JASTIP: "category_jastip",
+  CATEGORY_OPENANJEM: "category_openanjem",
+  CATEGORY_OPENJASTIP: "category_openjastip",
+};
+
+const CATEGORIES = {
+  ANJEM: "#ANJEM",
+  JASTIP: "#JASTIP",
+  OPENANJEM: "#OPENANJEM",
+  OPENJASTIP: "#OPENJASTIP",
+};
+
+// ========================================
+// INITIALIZATION
+// ========================================
+
+const bot = new TelegramBot(CONFIG.TOKEN, { polling: true });
+
+// State Management
+const userStates = new Map();
+const waitingForForward = new Map();
+
+// Startup Log
 console.log("🚀 Bot started!");
-console.log("Channel ID:", CHANNEL_ID);
+console.log("Channel ID:", CONFIG.CHANNEL_ID);
+console.log("Channel Username:", CONFIG.CHANNEL_USERNAME);
 
-// === Set Bot Commands Menu ===
-// Menambahkan command list yang muncul di menu bot
-bot
-  .setMyCommands([
+// ========================================
+// UTILITY FUNCTIONS
+// ========================================
+
+/**
+ * Set bot commands menu
+ */
+async function setBotCommands() {
+  const commands = [
     { command: "start", description: "Start the bot and start to make a post" },
-    { command: "menfess", description: "Post MENFESS to Fess Channel" },
     { command: "mager", description: "Post #anjem #jastip #openanjem #openjastip" },
-    { command: "shop", description: "Shop and sell items in campus" },
-    { command: "friend", description: "Find new friends in campus" },
     { command: "help", description: "Show help and tutorial" },
-  ])
-  .then(() => {
+  ];
+
+  try {
+    await bot.setMyCommands(commands);
     console.log("✅ Bot commands menu set successfully!");
-  })
-  .catch((err) => {
+  } catch (err) {
     console.error("❌ Failed to set bot commands:", err.message);
-  });
+  }
+}
 
-// === Command: /start ===
-// Menampilkan menu utama bot
-bot.onText(/\/start/, (msg) => {
-  const chatId = msg.chat.id;
-  const firstName = msg.from.first_name || "User";
+/**
+ * Check if user is member of the channel
+ * @param {number} userId - Telegram user ID
+ * @returns {Promise<boolean>}
+ */
+async function isUserMemberOfChannel(userId) {
+  try {
+    const chatMember = await bot.getChatMember(CONFIG.CHANNEL_ID, userId);
+    const validStatuses = ["creator", "administrator", "member"];
+    return validStatuses.includes(chatMember.status);
+  } catch (error) {
+    console.error("Error checking membership:", error.message);
+    return false;
+  }
+}
 
-  const keyboard = {
+/**
+ * Get user's current state
+ * @param {number} chatId - Chat ID
+ * @returns {Object|null}
+ */
+function getUserState(chatId) {
+  return userStates.get(chatId) || null;
+}
+
+/**
+ * Set user state
+ * @param {number} chatId - Chat ID
+ * @param {string} state - State name
+ * @param {string} category - Category (optional)
+ */
+function setUserState(chatId, state, category = null) {
+  const stateData = { state };
+  if (category) stateData.category = category;
+  userStates.set(chatId, stateData);
+}
+
+/**
+ * Clear user state
+ * @param {number} chatId - Chat ID
+ */
+function clearUserState(chatId) {
+  userStates.delete(chatId);
+}
+
+// Initialize bot commands
+setBotCommands();
+
+// ========================================
+// KEYBOARD BUILDERS
+// ========================================
+
+/**
+ * Build main menu keyboard
+ * @returns {Object}
+ */
+function buildMainMenuKeyboard() {
+  return {
+    inline_keyboard: [[{ text: "🎯 Lalala Mager 🏃", callback_data: CALLBACK_DATA.MENU_MAGER }]],
+  };
+}
+
+/**
+ * Build mager menu keyboard
+ * @param {boolean} includeMainMenu - Include main menu button
+ * @returns {Object}
+ */
+function buildMagerMenuKeyboard(includeMainMenu = false) {
+  const buttons = [
+    [{ text: "📮 Post Mager", callback_data: CALLBACK_DATA.POST_MAGER }],
+    [{ text: "📋 My Magers", callback_data: CALLBACK_DATA.MY_MAGERS }],
+    [{ text: "📦 Close Mager", callback_data: CALLBACK_DATA.CLOSE_MAGER }],
+    [{ text: "📝 Edit Post", callback_data: CALLBACK_DATA.EDIT_POST }],
+    [{ text: "💰 Check Price", callback_data: CALLBACK_DATA.CHECK_PRICE }],
+    [{ text: "⭐ Rating", callback_data: CALLBACK_DATA.RATING }],
+    [{ text: "✅ Check Verified", callback_data: CALLBACK_DATA.CHECK_VERIFIED }],
+  ];
+
+  if (includeMainMenu) {
+    buttons.push([{ text: "🏠 Main Menu", callback_data: CALLBACK_DATA.BACK_TO_MAIN }]);
+  }
+
+  buttons.push([{ text: "❌ Close", callback_data: CALLBACK_DATA.CLOSE_MENU }]);
+
+  return { inline_keyboard: buttons };
+}
+
+/**
+ * Build category selection keyboard
+ * @returns {Object}
+ */
+function buildCategoryKeyboard() {
+  return {
     inline_keyboard: [
-      [{ text: "🎯 Lalala Mager 🏃", callback_data: "menu_mager" }],
-      [{ text: "💬 Lalala Fess 🎙️", callback_data: "menu_menfess" }],
-      [{ text: "🛍️ Lalala Shop 🛒", callback_data: "menu_shop" }],
-      [{ text: "👥 Lalala Friend 👫", callback_data: "menu_friend" }],
+      [
+        { text: "#ANJEM 🚗", callback_data: CALLBACK_DATA.CATEGORY_ANJEM },
+        { text: "#JASTIP 🛍️", callback_data: CALLBACK_DATA.CATEGORY_JASTIP },
+      ],
+      [
+        { text: "#OPENANJEM 🚗", callback_data: CALLBACK_DATA.CATEGORY_OPENANJEM },
+        { text: "#OPENJASTIP 🛍️", callback_data: CALLBACK_DATA.CATEGORY_OPENJASTIP },
+      ],
+      [{ text: "📖 Read Rules", url: "https://t.me/+AcwluKqZkCtiYTc1" }],
+      [{ text: "🔙 back", callback_data: CALLBACK_DATA.BACK_TO_MAGER }],
     ],
   };
+}
 
-  const welcomeText = `Hai ${firstName}! 👋
+/**
+ * Build join channel keyboard
+ * @returns {Object}
+ */
+function buildJoinChannelKeyboard() {
+  return {
+    inline_keyboard: [[{ text: "📢 Join Channel", url: `https://t.me/${CONFIG.CHANNEL_USERNAME.replace("@", "")}` }], [{ text: "✅ Saya Sudah Join", callback_data: CALLBACK_DATA.CHECK_MEMBERSHIP }]],
+  };
+}
+
+// ========================================
+// MESSAGE TEMPLATES
+// ========================================
+
+/**
+ * Get welcome message text
+ * @param {string} firstName - User's first name
+ * @param {boolean} isMember - Is user a channel member
+ * @returns {string}
+ */
+function getWelcomeMessage(firstName, isMember) {
+  const membershipWarning = !isMember ? "\n⚠️ <i>Harap join channel terlebih dahulu untuk mengakses fitur Mager</i>\n" : "";
+
+  return `Hai ${firstName}! 👋
 
 Selamat datang di <b>Kampusku Bot</b> 🎓
 
-Pilih menu yang kamu butuhkan:
+Gunakan bot ini untuk:
 • 🎯 <b>Lalala Mager</b> - Cari & posting tumpangan
-• 💬 <b>Lalala Fess</b> - Posting menfess anonim
-• 🛍️ <b>Lalala Shop</b> - Jual beli kampus
-• 👥 <b>Lalala Friend</b> - Cari teman baru
-
+${membershipWarning}
 Ketik /help untuk panduan lengkap.`;
+}
 
-  bot.sendMessage(chatId, welcomeText, {
-    parse_mode: "HTML",
-    reply_markup: keyboard,
-  });
-});
+/**
+ * Get join channel required message
+ * @returns {string}
+ */
+function getJoinChannelMessage() {
+  return `⚠️ <b>Akses Ditolak</b>
 
-// === Command: /mager ===
-// Menampilkan menu utama mager
-bot.onText(/\/mager/, (msg) => {
-  const chatId = msg.chat.id;
+Untuk menggunakan fitur Mager, Anda harus join channel terlebih dahulu:
 
-  const keyboard = {
-    inline_keyboard: [
-      [{ text: "📮 Post Mager", callback_data: "post_mager" }],
-      [{ text: "📋 My Magers", callback_data: "my_magers" }],
-      [{ text: "📦 Close Mager", callback_data: "close_mager" }],
-      [{ text: "📝 Edit Post", callback_data: "edit_post" }],
-      [{ text: "💰 Check Price", callback_data: "check_price" }],
-      [{ text: "⭐ Rating", callback_data: "rating" }],
-      [{ text: "✅ Check Verified", callback_data: "check_verified" }],
-      [{ text: "❌ Close", callback_data: "close_menu" }],
-    ],
-  };
+📢 Channel: ${CONFIG.CHANNEL_USERNAME}
 
-  bot.sendMessage(chatId, "👉 Select mager", {
-    reply_markup: keyboard,
-  });
-});
+Setelah join, klik tombol "Saya Sudah Join" untuk verifikasi.`;
+}
 
-// === Command: /menfess ===
-// Menampilkan menu utama menfess
-bot.onText(/\/menfess/, (msg) => {
-  const chatId = msg.chat.id;
-
-  const keyboard = {
-    inline_keyboard: [[{ text: "📝 Post Menfess", callback_data: "post_menfess" }], [{ text: "📋 My Menfess", callback_data: "my_menfess" }], [{ text: "❌ Close", callback_data: "close_menu" }]],
-  };
-
-  bot.sendMessage(chatId, "💬 Select menfess option", {
-    reply_markup: keyboard,
-  });
-});
-
-// === Command: /shop ===
-// Menampilkan menu shop (coming soon)
-bot.onText(/\/shop/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, "🛍️ Lalala Shop\n\nFitur ini sedang dalam pengembangan. Stay tuned! 🚧");
-});
-
-// === Command: /friend ===
-// Menampilkan menu friend (coming soon)
-bot.onText(/\/friend/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, "👥 Lalala Friend\n\nFitur ini sedang dalam pengembangan. Stay tuned! 🚧");
-});
-
-// === Command: /help ===
-// Menampilkan panduan penggunaan bot
-bot.onText(/\/help/, (msg) => {
-  const chatId = msg.chat.id;
-
-  const helpText = `📖 <b>Panduan Kampusku Bot</b>
+/**
+ * Get help message text
+ * @returns {string}
+ */
+function getHelpMessage() {
+  return `📖 <b>Panduan Kampusku Bot</b>
 
 🎯 <b>Lalala MAGER</b>
 Cari atau posting tumpangan ke kampus/tempat lain
@@ -143,22 +255,12 @@ Cari atau posting tumpangan ke kampus/tempat lain
 • #OPENANJEM - Buka jasa antar
 • #OPENJASTIP - Buka jasa titip
 
-💬 <b>Lalala FESS</b>
-Posting menfess anonim ke channel
-• /menfess - Buka menu menfess
-• Postingan bersifat anonim
-
-🛍️ <b>Lalala SHOP</b>
-Jual beli barang di kampus (Coming Soon)
-
-👥 <b>Lalala FRIEND</b>
-Cari teman baru di kampus (Coming Soon)
-
 📌 <b>CARA POSTING</b>
-1. Ketik command (misal /mager)
-2. Pilih kategori posting
-3. Kirim pesanmu
-4. Selesai! Postingan terkirim
+1. Ketik command /mager
+2. Pilih "Post Mager"
+3. Pilih kategori (#ANJEM, #JASTIP, dll)
+4. Kirim pesanmu
+5. Selesai! Postingan terkirim ke channel
 
 ⚠️ <b>ATURAN PENTING</b>
 • Dilarang posting konten negatif
@@ -167,144 +269,15 @@ Cari teman baru di kampus (Coming Soon)
 • Pelanggaran = banned
 
 💡 Butuh bantuan? Hubungi admin grup!`;
+}
 
-  bot.sendMessage(chatId, helpText, {
-    parse_mode: "HTML",
-  });
-});
-
-// === Handler Callback Query ===
-// Menangani klik tombol inline keyboard
-bot.on("callback_query", async (query) => {
-  const chatId = query.message.chat.id;
-  const data = query.data;
-  const messageId = query.message.message_id;
-
-  // Handler untuk menu utama dari /start
-  if (data === "menu_mager") {
-    const keyboard = {
-      inline_keyboard: [
-        [{ text: "📮 Post Mager", callback_data: "post_mager" }],
-        [{ text: "📋 My Magers", callback_data: "my_magers" }],
-        [{ text: "📦 Close Mager", callback_data: "close_mager" }],
-        [{ text: "📝 Edit Post", callback_data: "edit_post" }],
-        [{ text: "💰 Check Price", callback_data: "check_price" }],
-        [{ text: "⭐ Rating", callback_data: "rating" }],
-        [{ text: "✅ Check Verified", callback_data: "check_verified" }],
-        [{ text: "🏠 Main Menu", callback_data: "back_to_main" }],
-        [{ text: "❌ Close", callback_data: "close_menu" }],
-      ],
-    };
-
-    await bot.editMessageText("👉 Select mager", {
-      chat_id: chatId,
-      message_id: messageId,
-      reply_markup: keyboard,
-    });
-
-    await bot.answerCallbackQuery(query.id);
-    return;
-  }
-
-  if (data === "menu_menfess") {
-    const keyboard = {
-      inline_keyboard: [
-        [{ text: "📝 Post Menfess", callback_data: "post_menfess" }],
-        [{ text: "📋 My Menfess", callback_data: "my_menfess" }],
-        [{ text: "🏠 Main Menu", callback_data: "back_to_main" }],
-        [{ text: "❌ Close", callback_data: "close_menu" }],
-      ],
-    };
-
-    await bot.editMessageText("💬 Select menfess option", {
-      chat_id: chatId,
-      message_id: messageId,
-      reply_markup: keyboard,
-    });
-
-    await bot.answerCallbackQuery(query.id);
-    return;
-  }
-
-  if (data === "menu_shop" || data === "menu_friend") {
-    await bot.answerCallbackQuery(query.id, {
-      text: "Fitur ini sedang dalam pengembangan 🚧",
-      show_alert: true,
-    });
-    return;
-  }
-
-  // Handler untuk back ke main menu
-  if (data === "back_to_main") {
-    const firstName = query.from.first_name || "User";
-    const keyboard = {
-      inline_keyboard: [
-        [{ text: "🎯 Lalala Mager 🏃", callback_data: "menu_mager" }],
-        [{ text: "💬 Lalala Fess 🎙️", callback_data: "menu_menfess" }],
-        [{ text: "🛍️ Lalala Shop 🛒", callback_data: "menu_shop" }],
-        [{ text: "👥 Lalala Friend 👫", callback_data: "menu_friend" }],
-      ],
-    };
-
-    const welcomeText = `Hai ${firstName}! 👋
-
-Selamat datang di <b>Kampusku Bot</b> 🎓
-
-Pilih menu yang kamu butuhkan:
-• 🎯 <b>Lalala Mager</b> - Cari & posting tumpangan
-• 💬 <b>Lalala Fess</b> - Posting menfess anonim
-• 🛍️ <b>Lalala Shop</b> - Jual beli kampus
-• 👥 <b>Lalala Friend</b> - Cari teman baru
-
-Ketik /help untuk panduan lengkap.`;
-
-    await bot.editMessageText(welcomeText, {
-      chat_id: chatId,
-      message_id: messageId,
-      parse_mode: "HTML",
-      reply_markup: keyboard,
-    });
-
-    await bot.answerCallbackQuery(query.id);
-    return;
-  }
-
-  // Handler untuk Post Mager
-  if (data === "post_mager") {
-    const keyboard = {
-      inline_keyboard: [
-        [
-          { text: "#ANJEM 🚗", callback_data: "category_anjem" },
-          { text: "#JASTIP 🛍️", callback_data: "category_jastip" },
-        ],
-        [
-          { text: "#OPENANJEM 🚗", callback_data: "category_openanjem" },
-          { text: "#OPENJASTIP 🛍️", callback_data: "category_openjastip" },
-        ],
-        [{ text: "📖 Read Rules", url: "https://t.me/+AcwluKqZkCtiYTc1" }],
-        [{ text: "🔙 back", callback_data: "back_to_mager" }],
-      ],
-    };
-
-    await bot.editMessageText("👉 Select mager", {
-      chat_id: chatId,
-      message_id: messageId,
-      reply_markup: keyboard,
-    });
-
-    await bot.answerCallbackQuery(query.id);
-    return;
-  }
-
-  // Handler untuk memilih kategori #ANJEM
-  if (data === "category_anjem") {
-    // Set state user ke WAITING_MESSAGE
-    userStates.set(chatId, {
-      state: STATES.WAITING_MESSAGE,
-      category: "#ANJEM",
-    });
-
-    const infoText = `» #ANJEM 🚗
+/**
+ * Get category info message
+ * @param {string} category - Category name
+ * @returns {string}
+ */
+function getCategoryInfoMessage(category) {
+  return `» ${category} 🚗
 
 Input your message to post:
 • post type: text, photo, video
@@ -316,150 +289,424 @@ Input your message to post:
 » Please read T&C in /help to not post agains the rules and you won't be banned
 
 📝 Silakan kirim pesan Anda sekarang...`;
+}
 
-    await bot.editMessageText(infoText, {
-      chat_id: chatId,
-      message_id: messageId,
-      reply_markup: {
-        inline_keyboard: [[{ text: "🔙 back", callback_data: "post_mager" }]],
-      },
-    });
+// ========================================
+// MESSAGE SENDERS
+// ========================================
 
-    await bot.answerCallbackQuery(query.id, { text: "Silakan kirim pesan Anda..." });
-    return;
-  }
+/**
+ * Send join channel requirement message
+ * @param {number} chatId - Chat ID
+ */
+async function sendJoinChannelMessage(chatId) {
+  await bot.sendMessage(chatId, getJoinChannelMessage(), {
+    parse_mode: "HTML",
+    reply_markup: buildJoinChannelKeyboard(),
+  });
+}
 
-  // Handler untuk kategori lainnya (placeholder)
-  if (data === "category_jastip" || data === "category_openanjem" || data === "category_openjastip") {
-    await bot.answerCallbackQuery(query.id, {
-      text: "Fitur kategori ini sedang dalam pengembangan",
-      show_alert: true,
-    });
-    return;
-  }
+/**
+ * Send message to channel
+ * @param {string} message - Message text
+ * @returns {Promise<void>}
+ */
+async function sendToChannel(message) {
+  await bot.sendMessage(CONFIG.CHANNEL_ID, message);
+}
 
-  // Handler untuk back ke menu mager
-  if (data === "back_to_mager") {
-    // Reset state
-    userStates.delete(chatId);
+// ========================================
+// COMMAND HANDLERS
+// ========================================
 
-    const keyboard = {
-      inline_keyboard: [
-        [{ text: "📮 Post Mager", callback_data: "post_mager" }],
-        [{ text: "📋 My Magers", callback_data: "my_magers" }],
-        [{ text: "📦 Close Mager", callback_data: "close_mager" }],
-        [{ text: "📝 Edit Post", callback_data: "edit_post" }],
-        [{ text: "💰 Check Price", callback_data: "check_price" }],
-        [{ text: "⭐ Rating", callback_data: "rating" }],
-        [{ text: "✅ Check Verified", callback_data: "check_verified" }],
-        [{ text: "🏠 Main Menu", callback_data: "back_to_main" }],
-        [{ text: "❌ Close", callback_data: "close_menu" }],
-      ],
-    };
+/**
+ * Handle /start command
+ */
+bot.onText(/\/start/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const firstName = msg.from.first_name || "User";
 
-    await bot.editMessageText("👉 Select mager", {
-      chat_id: chatId,
-      message_id: messageId,
-      reply_markup: keyboard,
-    });
+  const isMember = await isUserMemberOfChannel(userId);
+  const welcomeText = getWelcomeMessage(firstName, isMember);
 
-    await bot.answerCallbackQuery(query.id);
-    return;
-  }
-
-  // Handler untuk close menu
-  if (data === "close_menu") {
-    await bot.deleteMessage(chatId, messageId);
-    await bot.answerCallbackQuery(query.id, { text: "Menu ditutup" });
-    userStates.delete(chatId);
-    return;
-  }
-
-  // Handler sementara untuk tombol lain
-  await bot.answerCallbackQuery(query.id, {
-    text: "Fitur ini belum tersedia",
-    show_alert: true,
+  await bot.sendMessage(chatId, welcomeText, {
+    parse_mode: "HTML",
+    reply_markup: buildMainMenuKeyboard(),
   });
 });
 
-// === Command: #anjem (backward compatibility) ===
-// Saat user mengetik #anjem, bot akan menunggu pesan berikutnya untuk dikirim ke channel
+/**
+ * Handle /mager command
+ */
+bot.onText(/\/mager/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  const isMember = await isUserMemberOfChannel(userId);
+
+  if (!isMember) {
+    await sendJoinChannelMessage(chatId);
+    return;
+  }
+
+  await bot.sendMessage(chatId, "� Select mager", {
+    reply_markup: buildMagerMenuKeyboard(false),
+  });
+});
+
+/**
+ * Handle /help command
+ */
+bot.onText(/\/help/, async (msg) => {
+  const chatId = msg.chat.id;
+
+  await bot.sendMessage(chatId, getHelpMessage(), {
+    parse_mode: "HTML",
+  });
+});
+
+/**
+ * Handle #anjem tag (backward compatibility)
+ */
 bot.onText(/#anjem\b/i, (msg) => {
   const chatId = msg.chat.id;
   waitingForForward.set(chatId, true);
   bot.sendMessage(chatId, "Tag #anjem diterima ✅. Silakan kirim pesan yang ingin diposting ke channel.");
 });
 
-// === Event: Menerima pesan teks ===
-bot.on("message", async (msg) => {
-  const chatId = msg.chat.id;
+// ========================================
+// CALLBACK QUERY HANDLERS
+// ========================================
 
-  // Abaikan jika pesan adalah command atau callback
-  if (msg.text && msg.text.startsWith("/")) return;
+/**
+ * Handle membership verification
+ */
+async function handleCheckMembership(query) {
+  const chatId = query.message.chat.id;
+  const userId = query.from.id;
+  const messageId = query.message.message_id;
 
-  // Cek apakah user sedang dalam state WAITING_MESSAGE (dari menu mager)
-  const userState = userStates.get(chatId);
+  const isMember = await isUserMemberOfChannel(userId);
 
-  if (userState && userState.state === STATES.WAITING_MESSAGE) {
-    console.log(`📤 Mengirim pesan dari ${chatId} ke channel ${CHANNEL_ID}`);
-    console.log(`📌 Kategori: ${userState.category}`);
+  if (isMember) {
+    await bot.answerCallbackQuery(query.id, {
+      text: "✅ Terverifikasi! Anda sudah join channel.",
+      show_alert: true,
+    });
 
-    try {
-      // Format pesan dengan kategori
-      const messageToSend = `${userState.category}\n\n${msg.text}`;
+    await bot.deleteMessage(chatId, messageId);
 
-      // Kirim pesan ke channel
-      await bot.sendMessage(CHANNEL_ID, messageToSend);
+    await bot.sendMessage(chatId, "👉 Select mager", {
+      reply_markup: buildMagerMenuKeyboard(true),
+    });
+  } else {
+    await bot.answerCallbackQuery(query.id, {
+      text: "❌ Anda belum join channel. Silakan join terlebih dahulu!",
+      show_alert: true,
+    });
+  }
+}
 
-      // Balas user dengan konfirmasi
-      await bot.sendMessage(chatId, `✅ Pesan berhasil dikirim ke channel dengan kategori ${userState.category}!\n\nPesan Anda:\n${msg.text}`);
-      console.log("✅ Pesan berhasil dikirim ke channel!");
+/**
+ * Handle menu mager callback
+ */
+async function handleMenuMager(query) {
+  const chatId = query.message.chat.id;
+  const userId = query.from.id;
+  const messageId = query.message.message_id;
 
-      // Reset state user
-      userStates.delete(chatId);
-    } catch (err) {
-      console.error("❌ Gagal mengirim ke channel:", err.message);
-      console.error("Detail:", err.response?.body);
-      await bot.sendMessage(chatId, `⚠️ Gagal mengirim ke channel: ${err.message}`);
-    }
+  const isMember = await isUserMemberOfChannel(userId);
 
+  if (!isMember) {
+    await bot.answerCallbackQuery(query.id);
+    await bot.deleteMessage(chatId, messageId);
+    await sendJoinChannelMessage(chatId);
     return;
   }
 
-  // Handler untuk #anjem manual (backward compatibility)
-  if (msg.text && /#anjem\b/i.test(msg.text)) {
-    return; // Sudah dihandle di onText handler
-  }
+  await bot.editMessageText("👉 Select mager", {
+    chat_id: chatId,
+    message_id: messageId,
+    reply_markup: buildMagerMenuKeyboard(true),
+  });
 
-  // Jika user sedang menunggu untuk mengirim ke channel (cara lama dengan #anjem)
-  if (waitingForForward.get(chatId)) {
-    console.log(`📤 Mengirim pesan dari ${chatId} ke channel ${CHANNEL_ID}`);
+  await bot.answerCallbackQuery(query.id);
+}
 
-    try {
-      // Kirim pesan ke channel
-      await bot.sendMessage(CHANNEL_ID, msg.text);
+/**
+ * Handle back to main menu
+ */
+async function handleBackToMain(query) {
+  const chatId = query.message.chat.id;
+  const messageId = query.message.message_id;
+  const firstName = query.from.first_name || "User";
 
-      // Balas user
-      await bot.sendMessage(chatId, "✅ Pesan berhasil dikirim ke channel dan dapat dikomentari oleh subscriber.");
-      console.log("✅ Pesan berhasil dikirim ke channel!");
-    } catch (err) {
-      console.error("❌ Gagal mengirim ke channel:", err.message);
-      console.error("Detail:", err.response?.body);
-      await bot.sendMessage(chatId, `⚠️ Gagal mengirim ke channel: ${err.message}`);
+  const welcomeText = getWelcomeMessage(firstName, true);
+
+  await bot.editMessageText(welcomeText, {
+    chat_id: chatId,
+    message_id: messageId,
+    parse_mode: "HTML",
+    reply_markup: buildMainMenuKeyboard(),
+  });
+
+  await bot.answerCallbackQuery(query.id);
+}
+
+/**
+ * Handle post mager callback
+ */
+async function handlePostMager(query) {
+  const chatId = query.message.chat.id;
+  const messageId = query.message.message_id;
+
+  await bot.editMessageText("👉 Select mager", {
+    chat_id: chatId,
+    message_id: messageId,
+    reply_markup: buildCategoryKeyboard(),
+  });
+
+  await bot.answerCallbackQuery(query.id);
+}
+
+/**
+ * Handle category selection
+ */
+async function handleCategorySelection(query, category) {
+  const chatId = query.message.chat.id;
+  const messageId = query.message.message_id;
+
+  setUserState(chatId, STATES.WAITING_MESSAGE, category);
+
+  await bot.editMessageText(getCategoryInfoMessage(category), {
+    chat_id: chatId,
+    message_id: messageId,
+    reply_markup: {
+      inline_keyboard: [[{ text: "🔙 back", callback_data: CALLBACK_DATA.POST_MAGER }]],
+    },
+  });
+
+  await bot.answerCallbackQuery(query.id, { text: "Silakan kirim pesan Anda..." });
+}
+
+/**
+ * Handle back to mager menu
+ */
+async function handleBackToMager(query) {
+  const chatId = query.message.chat.id;
+  const messageId = query.message.message_id;
+
+  clearUserState(chatId);
+
+  await bot.editMessageText("👉 Select mager", {
+    chat_id: chatId,
+    message_id: messageId,
+    reply_markup: buildMagerMenuKeyboard(true),
+  });
+
+  await bot.answerCallbackQuery(query.id);
+}
+
+/**
+ * Handle close menu
+ */
+async function handleCloseMenu(query) {
+  const chatId = query.message.chat.id;
+  const messageId = query.message.message_id;
+
+  await bot.deleteMessage(chatId, messageId);
+  await bot.answerCallbackQuery(query.id, { text: "Menu ditutup" });
+  clearUserState(chatId);
+}
+
+/**
+ * Handle feature not available
+ */
+async function handleFeatureNotAvailable(query) {
+  await bot.answerCallbackQuery(query.id, {
+    text: "Fitur ini belum tersedia",
+    show_alert: true,
+  });
+}
+
+/**
+ * Main callback query handler
+ */
+bot.on("callback_query", async (query) => {
+  const data = query.data;
+
+  try {
+    switch (data) {
+      case CALLBACK_DATA.CHECK_MEMBERSHIP:
+        await handleCheckMembership(query);
+        break;
+
+      case CALLBACK_DATA.MENU_MAGER:
+        await handleMenuMager(query);
+        break;
+
+      case CALLBACK_DATA.BACK_TO_MAIN:
+        await handleBackToMain(query);
+        break;
+
+      case CALLBACK_DATA.POST_MAGER:
+        await handlePostMager(query);
+        break;
+
+      case CALLBACK_DATA.CATEGORY_ANJEM:
+        await handleCategorySelection(query, CATEGORIES.ANJEM);
+        break;
+
+      case CALLBACK_DATA.CATEGORY_JASTIP:
+      case CALLBACK_DATA.CATEGORY_OPENANJEM:
+      case CALLBACK_DATA.CATEGORY_OPENJASTIP:
+        await bot.answerCallbackQuery(query.id, {
+          text: "Fitur kategori ini sedang dalam pengembangan",
+          show_alert: true,
+        });
+        break;
+
+      case CALLBACK_DATA.BACK_TO_MAGER:
+        await handleBackToMager(query);
+        break;
+
+      case CALLBACK_DATA.CLOSE_MENU:
+        await handleCloseMenu(query);
+        break;
+
+      case CALLBACK_DATA.MY_MAGERS:
+      case CALLBACK_DATA.CLOSE_MAGER:
+      case CALLBACK_DATA.EDIT_POST:
+      case CALLBACK_DATA.CHECK_PRICE:
+      case CALLBACK_DATA.RATING:
+      case CALLBACK_DATA.CHECK_VERIFIED:
+        await handleFeatureNotAvailable(query);
+        break;
+
+      default:
+        await handleFeatureNotAvailable(query);
     }
-
-    // Hapus state setelah kirim
-    waitingForForward.delete(chatId);
+  } catch (error) {
+    console.error("Error handling callback query:", error);
+    await bot.answerCallbackQuery(query.id, {
+      text: "Terjadi kesalahan. Silakan coba lagi.",
+      show_alert: true,
+    });
   }
 });
 
-// === Optional: Respon tambahan ===
-bot.onText(/^!haloo$/, (msg) => {
+// ========================================
+// MESSAGE HANDLERS
+// ========================================
+
+/**
+ * Handle user message posting to channel
+ */
+async function handleMessagePosting(msg) {
   const chatId = msg.chat.id;
-  bot.sendMessage(chatId, "Hai 👋! Ketik #anjem untuk mengirim pesan ke channel.");
+  const userState = getUserState(chatId);
+
+  if (!userState || userState.state !== STATES.WAITING_MESSAGE) {
+    return false;
+  }
+
+  console.log(`📤 Mengirim pesan dari ${chatId} ke channel ${CONFIG.CHANNEL_ID}`);
+  console.log(`📌 Kategori: ${userState.category}`);
+
+  try {
+    const messageToSend = `${userState.category}\n\n${msg.text}`;
+    await sendToChannel(messageToSend);
+
+    await bot.sendMessage(chatId, `✅ Pesan berhasil dikirim ke channel dengan kategori ${userState.category}!\n\nPesan Anda:\n${msg.text}`);
+    console.log("✅ Pesan berhasil dikirim ke channel!");
+
+    clearUserState(chatId);
+    return true;
+  } catch (err) {
+    console.error("❌ Gagal mengirim ke channel:", err.message);
+    console.error("Detail:", err.response?.body);
+    await bot.sendMessage(chatId, `⚠️ Gagal mengirim ke channel: ${err.message}`);
+    return true;
+  }
+}
+
+/**
+ * Handle legacy #anjem tag posting
+ */
+async function handleLegacyPosting(msg) {
+  const chatId = msg.chat.id;
+
+  if (!waitingForForward.get(chatId)) {
+    return false;
+  }
+
+  console.log(`📤 Mengirim pesan dari ${chatId} ke channel ${CONFIG.CHANNEL_ID}`);
+
+  try {
+    await sendToChannel(msg.text);
+    await bot.sendMessage(chatId, "✅ Pesan berhasil dikirim ke channel dan dapat dikomentari oleh subscriber.");
+    console.log("✅ Pesan berhasil dikirim ke channel!");
+  } catch (err) {
+    console.error("❌ Gagal mengirim ke channel:", err.message);
+    console.error("Detail:", err.response?.body);
+    await bot.sendMessage(chatId, `⚠️ Gagal mengirim ke channel: ${err.message}`);
+  }
+
+  waitingForForward.delete(chatId);
+  return true;
+}
+
+/**
+ * Main message handler
+ */
+bot.on("message", async (msg) => {
+  const chatId = msg.chat.id;
+
+  // Ignore commands
+  if (msg.text && msg.text.startsWith("/")) return;
+
+  // Ignore #anjem tags (handled by onText)
+  if (msg.text && /#anjem\b/i.test(msg.text)) return;
+
+  // Handle message posting to channel
+  const isPosted = await handleMessagePosting(msg);
+  if (isPosted) return;
+
+  // Handle legacy posting method
+  await handleLegacyPosting(msg);
 });
 
-// === Debug sticker ===
-bot.on("sticker", (msg) => {
-  bot.sendMessage(msg.chat.id, msg.sticker.emoji || "👍");
+// ========================================
+// ERROR HANDLING
+// ========================================
+
+/**
+ * Handle polling errors
+ */
+bot.on("polling_error", (error) => {
+  console.error("Polling error:", error);
+});
+
+/**
+ * Handle webhook errors
+ */
+bot.on("webhook_error", (error) => {
+  console.error("Webhook error:", error);
+});
+
+// ========================================
+// GRACEFUL SHUTDOWN
+// ========================================
+
+process.on("SIGINT", () => {
+  console.log("\n👋 Shutting down bot gracefully...");
+  bot.stopPolling();
+  process.exit(0);
+});
+
+process.on("SIGTERM", () => {
+  console.log("\n👋 Shutting down bot gracefully...");
+  bot.stopPolling();
+  process.exit(0);
 });
