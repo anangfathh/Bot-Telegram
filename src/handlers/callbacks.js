@@ -12,6 +12,15 @@ const {
   getDriverMenuMessage,
   getDriverContactMessage,
   getDriverStatusMessage,
+  getDriverLookupPromptMessage,
+  getDriverLookupResultMessage,
+  getRatingTargetPromptMessage,
+  getRatingAmbiguousMessage,
+  getRatingScorePromptMessage,
+  getRatingCommentPromptMessage,
+  getRatingThankYouMessage,
+  getRatingLookupPromptMessage,
+  getRatingLookupResultMessage,
   getClosePostsMessage,
   getEditPostsMessage,
   getEditPostInstructionMessage,
@@ -34,6 +43,7 @@ function registerCallbackHandlers(bot) {
     : null;
   const CLOSE_POST_PREFIX = "close_post:";
   const EDIT_POST_PREFIX = "edit_post:";
+  const RATING_SCORE_PREFIX = "rating_score:";
   const BASE_FARE = 5000;
   const STEP_FARE = 1000;
 
@@ -47,6 +57,16 @@ function registerCallbackHandlers(bot) {
 
     keyboard.push([{ text: "🔙 Kembali", callback_data: backCallback }]);
     return { inline_keyboard: keyboard };
+  }
+
+  function buildRatingMenuKeyboard() {
+    return {
+      inline_keyboard: [
+        [{ text: "⭐ Beri Rating", callback_data: CALLBACK_DATA.RATE_USER }],
+        [{ text: "📊 Lihat Rating Pengguna", callback_data: CALLBACK_DATA.CHECK_USER_RATING }],
+        [{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.BACK_TO_MAGER }],
+      ],
+    };
   }
 
   function calculateFare(distance, isRain) {
@@ -382,6 +402,85 @@ function registerCallbackHandlers(bot) {
     await bot.answerCallbackQuery(query.id, { text: "Kirim teks baru untuk posting ini.", show_alert: false });
   }
 
+  async function handleRatingMenu(query) {
+    const chatId = query.message.chat.id;
+    const messageId = query.message.message_id;
+
+    clearUserState(chatId);
+
+    await bot.editMessageText("⭐ <b>Menu Rating</b>\n\nPilih aksi yang ingin Anda lakukan.", {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: "HTML",
+      reply_markup: buildRatingMenuKeyboard(),
+    });
+
+    await bot.answerCallbackQuery(query.id);
+  }
+
+  async function handleRateUser(query) {
+    const chatId = query.message.chat.id;
+    const messageId = query.message.message_id;
+
+    setUserState(chatId, STATES.AWAITING_RATING_TARGET);
+
+    await bot.editMessageText(getRatingTargetPromptMessage(), {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.RATING }]],
+      },
+    });
+
+    await bot.answerCallbackQuery(query.id);
+  }
+
+  async function handleCheckUserRating(query) {
+    const chatId = query.message.chat.id;
+    const messageId = query.message.message_id;
+
+    setUserState(chatId, STATES.AWAITING_RATING_LOOKUP);
+
+    await bot.editMessageText(getRatingLookupPromptMessage(), {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.RATING }]],
+      },
+    });
+
+    await bot.answerCallbackQuery(query.id);
+  }
+
+  async function handleRatingScoreSelection(query, score) {
+    const chatId = query.message.chat.id;
+    const userState = getUserState(chatId);
+
+    if (
+      !userState ||
+      userState.state !== STATES.AWAITING_RATING_SCORE ||
+      !userState.targetUserId ||
+      !userState.targetDisplay
+    ) {
+      await bot.answerCallbackQuery(query.id, { text: "Sesi rating tidak ditemukan.", show_alert: true });
+      return;
+    }
+
+    setUserState(chatId, STATES.AWAITING_RATING_COMMENT, {
+      targetUserId: userState.targetUserId,
+      targetDisplay: userState.targetDisplay,
+      score,
+    });
+
+    await bot.answerCallbackQuery(query.id, { text: `Rating ${score} dipilih.`, show_alert: false });
+
+    await bot.sendMessage(chatId, getRatingCommentPromptMessage(userState.targetDisplay), {
+      parse_mode: "HTML",
+    });
+  }
+
   async function handleCheckPrice(query) {
     const chatId = query.message.chat.id;
     const messageId = query.message.message_id;
@@ -608,6 +707,25 @@ function registerCallbackHandlers(bot) {
     await bot.answerCallbackQuery(query.id);
   }
 
+  async function handleCheckDriver(query) {
+    const chatId = query.message.chat.id;
+    const messageId = query.message.message_id;
+
+    clearUserState(chatId);
+    setUserState(chatId, STATES.AWAITING_DRIVER_LOOKUP);
+
+    await bot.editMessageText(getDriverLookupPromptMessage(), {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.BACK_TO_MAGER }]],
+      },
+    });
+
+    await bot.answerCallbackQuery(query.id, { text: "Masukkan nama atau username driver.", show_alert: false });
+  }
+
   async function handleFeatureNotAvailable(query) {
     await bot.answerCallbackQuery(query.id, {
       text: "Fitur ini belum tersedia",
@@ -628,6 +746,16 @@ function registerCallbackHandlers(bot) {
       if (data.startsWith(EDIT_POST_PREFIX)) {
         const postId = Number(data.slice(EDIT_POST_PREFIX.length));
         await handleEditPostSelection(query, Number.isNaN(postId) ? null : postId);
+        return;
+      }
+
+      if (data.startsWith(RATING_SCORE_PREFIX)) {
+        const score = Number(data.slice(RATING_SCORE_PREFIX.length));
+        if (Number.isNaN(score) || score < 1 || score > 5) {
+          await bot.answerCallbackQuery(query.id, { text: "Rating tidak valid.", show_alert: true });
+          return;
+        }
+        await handleRatingScoreSelection(query, score);
         return;
       }
 
@@ -676,6 +804,18 @@ function registerCallbackHandlers(bot) {
           await handleMyMagers(query);
           break;
 
+        case CALLBACK_DATA.RATING:
+          await handleRatingMenu(query);
+          break;
+
+        case CALLBACK_DATA.RATE_USER:
+          await handleRateUser(query);
+          break;
+
+        case CALLBACK_DATA.CHECK_USER_RATING:
+          await handleCheckUserRating(query);
+          break;
+
         case CALLBACK_DATA.CLOSE_MAGER:
           await handleCloseMagerMenu(query);
           break;
@@ -704,20 +844,26 @@ function registerCallbackHandlers(bot) {
           await handleDriverContact(query);
           break;
 
+        case CALLBACK_DATA.CHECK_DRIVER:
+          await handleCheckDriver(query);
+          break;
+
         case CALLBACK_DATA.DRIVER_STATUS:
           await handleDriverStatus(query);
           break;
+
         case CALLBACK_DATA.DRIVER_ADD:
           await handleDriverAdd(query);
           break;
+
         case CALLBACK_DATA.DRIVER_RENEW:
           await handleDriverRenew(query);
           break;
+
         case CALLBACK_DATA.DRIVER_REMOVE:
           await handleDriverRemove(query);
           break;
 
-        case CALLBACK_DATA.RATING:
         default:
           await handleFeatureNotAvailable(query);
           break;

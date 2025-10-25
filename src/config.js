@@ -21,6 +21,11 @@ const STATES = {
   AWAITING_DRIVER_INPUT: "awaiting_driver_input",
   AWAITING_EDIT_MESSAGE: "awaiting_edit_message",
   AWAITING_PRICE_INPUT: "awaiting_price_input",
+  AWAITING_DRIVER_LOOKUP: "awaiting_driver_lookup",
+  AWAITING_RATING_TARGET: "awaiting_rating_target",
+  AWAITING_RATING_SCORE: "awaiting_rating_score",
+  AWAITING_RATING_COMMENT: "awaiting_rating_comment",
+  AWAITING_RATING_LOOKUP: "awaiting_rating_lookup",
 };
 
 const DATABASE = {
@@ -41,6 +46,8 @@ const CALLBACK_DATA = {
   CHECK_PRICE: "check_price",
   RATING: "rating",
   CHECK_DRIVER: "check_driver",
+  RATE_USER: "rate_user",
+  CHECK_USER_RATING: "check_user_rating",
   PRICE_RAIN_YES: "price_rain_yes",
   PRICE_RAIN_NO: "price_rain_no",
   BACK_TO_MAIN: "back_to_main",

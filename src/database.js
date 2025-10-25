@@ -55,6 +55,37 @@ async function initDatabase() {
     await ensureUserPostsSchema();
 
     await pool.execute(
+      `CREATE TABLE IF NOT EXISTS users (
+        user_id BIGINT PRIMARY KEY,
+        username VARCHAR(64) NULL,
+        first_name VARCHAR(255) NULL,
+        last_name VARCHAR(255) NULL,
+        full_name VARCHAR(255) NULL,
+        last_seen_at DATETIME NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_users_username (username),
+        INDEX idx_users_full_name (full_name)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+    );
+
+    await pool.execute(
+      `CREATE TABLE IF NOT EXISTS user_ratings (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        target_user_id BIGINT NOT NULL,
+        rated_by_user_id BIGINT NOT NULL,
+        score TINYINT NOT NULL CHECK (score BETWEEN 1 AND 5),
+        comment TEXT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_rating_pair (target_user_id, rated_by_user_id),
+        INDEX idx_user_ratings_target (target_user_id),
+        CONSTRAINT fk_rating_target FOREIGN KEY (target_user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+        CONSTRAINT fk_rating_author FOREIGN KEY (rated_by_user_id) REFERENCES users(user_id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+    );
+
+    await pool.execute(
       `CREATE TABLE IF NOT EXISTS drivers (
         user_id BIGINT PRIMARY KEY,
         username VARCHAR(64) NULL,
@@ -100,6 +131,109 @@ async function ensureUserPostsSchema() {
       }
     }
   }
+}
+
+async function upsertUserProfile({ userId, username, firstName, lastName, fullName }) {
+  const db = getPool();
+  const now = new Date();
+  await db.execute(
+    `INSERT INTO users (user_id, username, first_name, last_name, full_name, last_seen_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       username = VALUES(username),
+       first_name = VALUES(first_name),
+       last_name = VALUES(last_name),
+       full_name = VALUES(full_name),
+       last_seen_at = VALUES(last_seen_at),
+       updated_at = CURRENT_TIMESTAMP`,
+    [userId, username || null, firstName || null, lastName || null, fullName || null, now]
+  );
+}
+
+async function searchUsersByQuery(query) {
+  const db = getPool();
+  const cleaned = (query || "").trim().toLowerCase();
+  if (!cleaned) {
+    return [];
+  }
+
+  const normalized = cleaned.startsWith("@") ? cleaned.slice(1) : cleaned;
+  const usernameVariants = new Set([normalized]);
+
+  const params = Array.from(usernameVariants);
+  const usernameConditions = params.map(() => "LOWER(REPLACE(username, '@', '')) = ?");
+
+  const [rows] = await db.execute(
+    `
+      SELECT user_id, username, first_name, last_name, full_name, last_seen_at
+      FROM users
+      WHERE (${usernameConditions.join(" OR ")})
+         OR (full_name IS NOT NULL AND LOWER(full_name) LIKE ?)
+      ORDER BY last_seen_at DESC
+      LIMIT 10
+    `,
+    [...params, `%${normalized}%`]
+  );
+
+  return rows.map((row) => ({
+    userId: Number(row.user_id),
+    username: row.username,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    fullName: row.full_name,
+    lastSeenAt: row.last_seen_at ? new Date(row.last_seen_at) : null,
+  }));
+}
+
+async function saveUserRating(targetUserId, ratedByUserId, score, comment) {
+  const db = getPool();
+  await db.execute(
+    `
+      INSERT INTO user_ratings (target_user_id, rated_by_user_id, score, comment)
+      VALUES (?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        score = VALUES(score),
+        comment = VALUES(comment),
+        updated_at = CURRENT_TIMESTAMP
+    `,
+    [targetUserId, ratedByUserId, score, comment || null]
+  );
+}
+
+async function getUserRatingSummary(targetUserId) {
+  const db = getPool();
+  const [[summary]] = await db.execute(
+    `
+      SELECT
+        COUNT(*) AS total_ratings,
+        AVG(score) AS average_score
+      FROM user_ratings
+      WHERE target_user_id = ?
+    `,
+    [targetUserId]
+  );
+
+  const [recentRows] = await db.execute(
+    `
+      SELECT rated_by_user_id, score, comment, updated_at
+      FROM user_ratings
+      WHERE target_user_id = ?
+      ORDER BY updated_at DESC
+      LIMIT 5
+    `,
+    [targetUserId]
+  );
+
+  return {
+    total: Number(summary?.total_ratings || 0),
+    average: summary?.average_score ? Number(summary.average_score) : null,
+    recent: recentRows.map((row) => ({
+      ratedByUserId: Number(row.rated_by_user_id),
+      score: Number(row.score),
+      comment: row.comment || null,
+      updatedAt: row.updated_at ? new Date(row.updated_at) : null,
+    })),
+  };
 }
 
 function getPool() {
@@ -288,5 +422,9 @@ module.exports = {
   markPostClosed,
   updatePostContent,
   listExpiredPosts,
+  upsertUserProfile,
+  searchUsersByQuery,
+  saveUserRating,
+  getUserRatingSummary,
   getPool,
 };

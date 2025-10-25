@@ -5,6 +5,7 @@ const { sendJoinChannelMessage } = require("../telegram");
 const { waitingForForward } = require("../state");
 const { isUserMemberOfChannel } = require("../membership");
 const { isDriverActive, registerDriver, removeDriver, renewDriver, purgeExpiredDrivers } = require("../drivers");
+const { upsertUserProfile } = require("../database");
 
 async function setBotCommands(bot) {
   const commands = [
@@ -57,6 +58,18 @@ function registerCommandHandlers(bot) {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
     const firstName = msg.from.first_name || "User";
+
+    try {
+      await upsertUserProfile({
+        userId,
+        username: msg.from.username ? `@${msg.from.username}` : null,
+        firstName: msg.from.first_name || null,
+        lastName: msg.from.last_name || null,
+        fullName: [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ") || null,
+      });
+    } catch (error) {
+      console.error("Failed to upsert user profile:", error);
+    }
 
     const isMember = await isUserMemberOfChannel(bot, userId);
     const welcomeText = getWelcomeMessage(firstName, isMember);

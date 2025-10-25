@@ -11,6 +11,13 @@ function formatCurrency(amount) {
   return rupiahFormatter.format(amount);
 }
 
+function formatUsernameDisplay(username) {
+  if (!username) {
+    return "-";
+  }
+  return username.startsWith("@") ? username : `@${username}`;
+}
+
 function formatTimestamp(timestamp) {
   const now = new Date();
   const diff = now - timestamp;
@@ -186,7 +193,7 @@ function getDriverStatusMessage(driver, contactUsername) {
     "🚗 <b>Status Driver</b>",
     "",
     `<b>Nama:</b> ${driver.fullName || "-"}`,
-    `<b>Username:</b> ${driver.username || "-"}`,
+    `<b>Username:</b> ${formatUsernameDisplay(driver.username)}`,
     `<b>Status:</b> ${driver.status === "active" ? "Aktif" : "Non-aktif"}`,
   ];
 
@@ -203,6 +210,157 @@ function getDriverStatusMessage(driver, contactUsername) {
   if (driver.status !== "active") {
     lines.push("");
     lines.push(`Status Anda non-aktif. Hubungi admin di <b>${contactUsername}</b> untuk aktivasi kembali.`);
+  }
+
+  return lines.join("\n");
+}
+
+function getDriverLookupPromptMessage() {
+  return [
+    "🚗 <b>Check Driver</b>",
+    "",
+    "Masukkan <b>username</b> (contoh: <code>@driver123</code>) atau <b>nama lengkap</b> calon driver.",
+    "Ketik <b>BATAL</b> untuk membatalkan.",
+  ].join("\n");
+}
+
+function getDriverLookupResultMessage(query, matches, contactUsername) {
+  if (!matches || matches.length === 0) {
+    return [
+      "🚗 <b>Hasil Check Driver</b>",
+      "",
+      `Pencarian: <b>${query}</b>`,
+      "",
+      "Status: <b>Tidak ditemukan / tidak terdaftar</b>",
+      `Silakan hubungi admin driver di <b>${contactUsername}</b> bila perlu verifikasi lebih lanjut.`,
+    ].join("\n");
+  }
+
+  const lines = [
+    "🚗 <b>Hasil Check Driver</b>",
+    "",
+    `Pencarian: <b>${query}</b>`,
+    "",
+    `Ditemukan ${matches.length} driver aktif:`,
+    "",
+  ];
+
+  matches.forEach((driver, index) => {
+    const summary = driver.ratingSummary;
+    const ratingText = summary && summary.total > 0
+      ? `Rating: ${summary.average?.toFixed(2) || "0.00"} (${summary.total} penilaian)`
+      : "Belum ada rating";
+    lines.push(
+      `${index + 1}. <b>${driver.fullName || "-"}</b> (${formatUsernameDisplay(driver.username)})${
+        driver.expiresAt ? ` • Berlaku sampai ${formatDateTimeId(driver.expiresAt)}` : ""
+      }`
+    );
+    lines.push(`   ${ratingText}`);
+  });
+
+  lines.push("", "Gunakan menu Rating > Beri Rating untuk memberikan penilaian.");
+  return lines.join("\n");
+}
+
+function getRatingTargetPromptMessage() {
+  return [
+    "⭐ <b>Beri Rating</b>",
+    "",
+    "Masukkan <b>username</b> (contoh: <code>@user123</code>) atau nama lengkap pengguna yang ingin Anda rating.",
+    "Tidak dapat memberi rating untuk diri sendiri.",
+    "Ketik <b>BATAL</b> untuk membatalkan.",
+  ].join("\n");
+}
+
+function getRatingAmbiguousMessage(matches) {
+  const lines = [
+    "⭐ <b>Pencarian Tidak Spesifik</b>",
+    "",
+    "Kami menemukan beberapa pengguna. Silakan kirim ulang dengan username yang lebih spesifik:",
+    "",
+  ];
+
+  matches.forEach((user, index) => {
+    lines.push(`${index + 1}. <b>${user.fullName || "-"}</b> (${formatUsernameDisplay(user.username)})`);
+  });
+
+  return lines.join("\n");
+}
+
+function getRatingScorePromptMessage(targetDisplay) {
+  return [
+    "⭐ <b>Pilih Rating</b>",
+    "",
+    `Target: <b>${targetDisplay}</b>`,
+    "",
+    "Pilih skor 1-5 (1 = buruk, 5 = sangat baik).",
+  ].join("\n");
+}
+
+function getRatingCommentPromptMessage(targetDisplay) {
+  return [
+    "📝 <b>Tambah Ulasan</b>",
+    "",
+    `Target: <b>${targetDisplay}</b>`,
+    "",
+    "Kirim ulasan singkat (opsional).",
+    "Ketik <b>-</b> untuk melewati atau <b>BATAL</b> untuk membatalkan.",
+  ].join("\n");
+}
+
+function getRatingThankYouMessage(targetDisplay, summary) {
+  const lines = [
+    "✅ <b>Rating Tersimpan</b>",
+    "",
+    `Anda telah memberikan rating untuk <b>${targetDisplay}</b>.`,
+  ];
+
+  if (summary && summary.total > 0) {
+    lines.push(
+      "",
+      `⭐ Rata-rata: <b>${summary.average?.toFixed(2) || "0.00"}</b> dari ${summary.total} penilaian.`
+    );
+  }
+
+
+  lines.push("", "Gunakan menu Rating > Beri Rating untuk memberikan penilaian.");
+  return lines.join("\n");
+}
+
+function getRatingLookupPromptMessage() {
+  return [
+    "⭐ <b>Check Rating Pengguna</b>",
+    "",
+    "Masukkan username atau nama pengguna yang ingin Anda cek rating-nya.",
+    "Catatan: untuk rating driver gunakan menu Check Driver.",
+    "Ketik <b>BATAL</b> untuk membatalkan.",
+  ].join("\n");
+}
+
+function getRatingLookupResultMessage(query, user, summary, contactUsername) {
+  if (!user) {
+    return [
+      "⭐ <b>Hasil Check Rating</b>",
+      "",
+      `Pencarian: <b>${query}</b>`,
+      "",
+      "Status: <b>Pengguna belum terdaftar</b>",
+      `Jika ini calon driver, gunakan fitur Check Driver atau hubungi <b>${contactUsername}</b>.`,
+    ].join("\n");
+  }
+
+  const lines = [
+    "⭐ <b>Hasil Check Rating</b>",
+    "",
+    `Pengguna: <b>${user.fullName || "-"}</b> (${formatUsernameDisplay(user.username)})`,
+  ];
+
+  if (summary && summary.total > 0) {
+    lines.push(
+      `Rata-rata: <b>${summary.average?.toFixed(2) || "0.00"}</b> dari ${summary.total} penilaian.`
+    );
+  } else {
+    lines.push("Belum ada rating yang tercatat.");
   }
 
   return lines.join("\n");
@@ -309,6 +467,15 @@ module.exports = {
   getDriverMenuMessage,
   getDriverContactMessage,
   getDriverStatusMessage,
+  getDriverLookupPromptMessage,
+  getDriverLookupResultMessage,
+  getRatingTargetPromptMessage,
+  getRatingAmbiguousMessage,
+  getRatingScorePromptMessage,
+  getRatingCommentPromptMessage,
+  getRatingThankYouMessage,
+  getRatingLookupPromptMessage,
+  getRatingLookupResultMessage,
   getClosePostsMessage,
   getEditPostsMessage,
   getEditPostInstructionMessage,

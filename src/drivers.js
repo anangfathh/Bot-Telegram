@@ -236,6 +236,47 @@ async function purgeExpiredDrivers(bot, referenceDate = new Date()) {
   return removed;
 }
 
+async function searchDriversByQuery(query) {
+  const db = getPool();
+  const cleaned = (query || "").trim().toLowerCase();
+  if (!cleaned) {
+    return [];
+  }
+
+  const usernameVariants = new Set();
+  if (cleaned.startsWith("@")) {
+    usernameVariants.add(cleaned);
+    usernameVariants.add(cleaned.substring(1));
+  } else {
+    usernameVariants.add(cleaned);
+    usernameVariants.add(`@${cleaned}`);
+  }
+
+  const usernameConditions = Array.from(usernameVariants).map(() => "LOWER(username) = ?");
+  const params = Array.from(usernameVariants);
+
+  const [rows] = await db.execute(
+    `
+      SELECT user_id, username, full_name, status, joined_at, expires_at
+      FROM drivers
+      WHERE (${usernameConditions.join(" OR ")})
+         OR (full_name IS NOT NULL AND LOWER(full_name) LIKE ?)
+      ORDER BY status = 'active' DESC, expires_at DESC, joined_at DESC
+      LIMIT 10
+    `,
+    [...params, `%${cleaned}%`]
+  );
+
+  return rows.map((row) => ({
+    userId: Number(row.user_id),
+    username: row.username,
+    fullName: row.full_name,
+    status: row.status,
+    joinedAt: row.joined_at ? new Date(row.joined_at) : null,
+    expiresAt: row.expires_at ? new Date(row.expires_at) : null,
+  }));
+}
+
 module.exports = {
   fetchDriver,
   isDriverActive,
@@ -244,4 +285,5 @@ module.exports = {
   renewDriver,
   removeDriver,
   purgeExpiredDrivers,
+  searchDriversByQuery,
 };

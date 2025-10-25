@@ -1,11 +1,44 @@
 const { CONFIG, STATES, CATEGORIES, CALLBACK_DATA } = require("../config");
 const { sendToChannel } = require("../telegram");
-const { saveUserPost, getPostById } = require("../database");
+const {
+  saveUserPost,
+  getPostById,
+  searchUsersByQuery,
+  saveUserRating,
+  getUserRatingSummary,
+  upsertUserProfile,
+} = require("../database");
 const { getUserState, setUserState, clearUserState, waitingForForward } = require("../state");
-const { ensureDriverActive, registerDriver, renewDriver, removeDriver, isDriverActive } = require("../drivers");
-const { getDriverMenuMessage, getPriceWeatherPromptMessage } = require("../messages");
+const {
+  ensureDriverActive,
+  registerDriver,
+  renewDriver,
+  removeDriver,
+  isDriverActive,
+  searchDriversByQuery,
+} = require("../drivers");
+const {
+  getDriverMenuMessage,
+  getPriceWeatherPromptMessage,
+  getDriverLookupPromptMessage,
+  getDriverLookupResultMessage,
+  getRatingTargetPromptMessage,
+  getRatingAmbiguousMessage,
+  getRatingScorePromptMessage,
+  getRatingCommentPromptMessage,
+  getRatingThankYouMessage,
+  getRatingLookupPromptMessage,
+  getRatingLookupResultMessage,
+} = require("../messages");
 const { buildDriverMenuKeyboard } = require("../keyboards");
 const { editPost } = require("../posts");
+const RATING_SCORE_PREFIX = "rating_score:";
+const formatUsername = (username) => {
+  if (!username) {
+    return "-";
+  }
+  return username.startsWith("@") ? username : `@${username}`;
+};
 
 function registerMessageHandlers(bot) {
   const isDriverAdminUser = (userId) => CONFIG.DRIVER_ADMIN_IDS.includes(userId);
@@ -67,6 +100,313 @@ function registerMessageHandlers(bot) {
             { text: "🌤️ Tidak hujan", callback_data: CALLBACK_DATA.PRICE_RAIN_NO },
           ],
         ],
+      },
+    });
+
+    return true;
+  }
+
+  async function handleRatingInput(msg) {
+    const chatId = msg.chat.id;
+    const userState = getUserState(chatId);
+
+    if (!userState || ![STATES.AWAITING_RATING_TARGET, STATES.AWAITING_RATING_SCORE, STATES.AWAITING_RATING_COMMENT].includes(userState.state)) {
+      return false;
+    }
+
+    if (userState.state === STATES.AWAITING_RATING_SCORE) {
+      await bot.sendMessage(chatId, "Silakan pilih skor 1-5 melalui tombol rating, atau ketik BATAL.");
+      return true;
+    }
+
+    if (!msg.text) {
+      await bot.sendMessage(chatId, "Kirim username atau nama yang valid, atau ketik BATAL.");
+      return true;
+    }
+
+    const text = msg.text.trim();
+
+    if (!text) {
+      await bot.sendMessage(chatId, "Format tidak valid. Silakan kirim ulang atau ketik BATAL.");
+      return true;
+    }
+
+    if (text.toLowerCase() === "batal") {
+      clearUserState(chatId);
+      await bot.sendMessage(chatId, "Proses rating dibatalkan.");
+      return true;
+    }
+
+    if (userState.state === STATES.AWAITING_RATING_TARGET) {
+      let matches = [];
+      try {
+        matches = await searchUsersByQuery(text);
+        const uniqueUsers = new Map();
+        for (const user of matches) {
+          if (!uniqueUsers.has(user.userId)) {
+            uniqueUsers.set(user.userId, user);
+          }
+        }
+        matches = Array.from(uniqueUsers.values());
+      } catch (error) {
+        console.error("Failed to search users for rating:", error);
+        await bot.sendMessage(chatId, "⚠️ Terjadi kesalahan saat mencari pengguna. Silakan coba lagi.");
+        return true;
+      }
+
+      const containsSelf = matches.some((user) => user.userId === msg.from.id);
+      matches = matches.filter((user) => user.userId !== msg.from.id);
+
+      if (matches.length === 0) {
+        if (containsSelf) {
+          await bot.sendMessage(chatId, "Anda tidak dapat memberi rating untuk diri sendiri.");
+        } else {
+          await bot.sendMessage(chatId, "Pengguna tidak ditemukan. Pastikan mereka sudah pernah menggunakan bot ini.");
+        }
+        return true;
+      }
+
+      if (matches.length > 1) {
+        await bot.sendMessage(chatId, getRatingAmbiguousMessage(matches.slice(0, 5)), {
+          parse_mode: "HTML",
+        });
+        return true;
+      }
+
+      const target = matches[0];
+      const usernameDisplay = formatUsername(target.username);
+      const targetDisplay = target.fullName ? `${target.fullName} (${usernameDisplay})` : usernameDisplay;
+
+      setUserState(chatId, STATES.AWAITING_RATING_SCORE, {
+        targetUserId: target.userId,
+        targetDisplay,
+      });
+
+      await bot.sendMessage(chatId, getRatingScorePromptMessage(targetDisplay), {
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "1", callback_data: `${RATING_SCORE_PREFIX}1` },
+              { text: "2", callback_data: `${RATING_SCORE_PREFIX}2` },
+              { text: "3", callback_data: `${RATING_SCORE_PREFIX}3` },
+              { text: "4", callback_data: `${RATING_SCORE_PREFIX}4` },
+              { text: "5", callback_data: `${RATING_SCORE_PREFIX}5` },
+            ],
+          ],
+        },
+      });
+
+      return true;
+    }
+
+    if (userState.state === STATES.AWAITING_RATING_COMMENT) {
+      const targetUserId = userState.targetUserId;
+      const targetDisplay = userState.targetDisplay;
+      const score = userState.score;
+
+      if (!targetUserId || !score) {
+        clearUserState(chatId);
+        await bot.sendMessage(chatId, "Sesi rating tidak valid. Silakan mulai ulang.");
+        return true;
+      }
+
+      const comment = text === "-" ? null : text;
+
+      if (comment && comment.length > 500) {
+        await bot.sendMessage(chatId, "Komentar maksimal 500 karakter. Silakan ringkas ulasan Anda.");
+        return true;
+      }
+
+      try {
+        await saveUserRating(targetUserId, msg.from.id, score, comment);
+      } catch (error) {
+        console.error("Failed to save user rating:", error);
+        await bot.sendMessage(chatId, "⚠️ Gagal menyimpan rating. Silakan coba lagi.");
+        return true;
+      }
+
+      clearUserState(chatId);
+
+      let summary = null;
+      try {
+        summary = await getUserRatingSummary(targetUserId);
+      } catch (error) {
+        console.error("Failed to load rating summary:", error);
+      }
+
+      await bot.sendMessage(chatId, getRatingThankYouMessage(targetDisplay, summary), {
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.RATING }]],
+        },
+      });
+
+      return true;
+    }
+
+    return false;
+  }
+
+  async function handleRatingLookupInput(msg) {
+    const chatId = msg.chat.id;
+    const userState = getUserState(chatId);
+
+    if (!userState || userState.state !== STATES.AWAITING_RATING_LOOKUP) {
+      return false;
+    }
+
+    if (!msg.text) {
+      await bot.sendMessage(chatId, "Masukkan username atau nama pengguna, atau ketik BATAL.");
+      return true;
+    }
+
+    const text = msg.text.trim();
+
+    if (!text) {
+      await bot.sendMessage(chatId, "Format tidak valid. Silakan kirim ulang atau ketik BATAL.");
+      return true;
+    }
+
+    if (text.toLowerCase() === "batal") {
+      clearUserState(chatId);
+      await bot.sendMessage(chatId, "Pencarian rating dibatalkan.");
+      return true;
+    }
+
+    let matches = [];
+    try {
+      matches = await searchUsersByQuery(text);
+      const uniqueUsers = new Map();
+      for (const user of matches) {
+        if (!uniqueUsers.has(user.userId)) {
+          uniqueUsers.set(user.userId, user);
+        }
+      }
+      matches = Array.from(uniqueUsers.values());
+    } catch (error) {
+      console.error("Failed to search users:", error);
+      await bot.sendMessage(chatId, "⚠️ Terjadi kesalahan saat mencari pengguna. Silakan coba lagi.");
+      return true;
+    }
+
+    if (matches.length === 0) {
+      clearUserState(chatId);
+      await bot.sendMessage(
+        chatId,
+        getRatingLookupResultMessage(text, null, null, CONFIG.DRIVER_CONTACT_USERNAME || "hubungi admin"),
+        {
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.RATING }]],
+          },
+        }
+      );
+      return true;
+    }
+
+    if (matches.length > 1) {
+      await bot.sendMessage(chatId, getRatingAmbiguousMessage(matches.slice(0, 5)), {
+        parse_mode: "HTML",
+      });
+      return true;
+    }
+
+    const target = matches[0];
+    let summary = null;
+    try {
+      summary = await getUserRatingSummary(target.userId);
+    } catch (error) {
+      console.error("Failed to load rating summary:", error);
+    }
+
+    clearUserState(chatId);
+
+    await bot.sendMessage(
+      chatId,
+      getRatingLookupResultMessage(text, target, summary, CONFIG.DRIVER_CONTACT_USERNAME || "hubungi admin"),
+      {
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.RATING }]],
+        },
+      }
+    );
+
+    return true;
+  }
+
+  async function handleDriverLookupInput(msg) {
+    const chatId = msg.chat.id;
+    const userState = getUserState(chatId);
+
+    if (!userState || userState.state !== STATES.AWAITING_DRIVER_LOOKUP) {
+      return false;
+    }
+
+    if (!msg.text) {
+      await bot.sendMessage(chatId, "Masukkan username atau nama driver yang ingin dicek, atau ketik BATAL.");
+      return true;
+    }
+
+    const text = msg.text.trim();
+
+    if (!text) {
+      await bot.sendMessage(chatId, "Format pencarian tidak valid. Coba masukkan lagi, atau ketik BATAL.");
+      return true;
+    }
+
+    if (text.toLowerCase() === "batal") {
+      clearUserState(chatId);
+      await bot.sendMessage(chatId, "Pencarian driver dibatalkan.");
+      return true;
+    }
+
+    let matches = [];
+    try {
+      const results = await searchDriversByQuery(text);
+      const now = Date.now();
+      matches = results.filter(
+        (driver) =>
+          driver.status === "active" && (!driver.expiresAt || driver.expiresAt.getTime() > now)
+      );
+      const uniqueDrivers = new Map();
+      for (const driver of matches) {
+        if (!uniqueDrivers.has(driver.userId)) {
+          uniqueDrivers.set(driver.userId, driver);
+        }
+      }
+      matches = Array.from(uniqueDrivers.values());
+    } catch (error) {
+      console.error("Failed to search drivers:", error);
+      await bot.sendMessage(chatId, "⚠️ Terjadi kesalahan saat mencari driver. Silakan coba lagi.");
+      return true;
+    }
+
+    let enhancedMatches = matches;
+    try {
+      enhancedMatches = await Promise.all(
+        matches.map(async (driver) => {
+          const summary = await getUserRatingSummary(driver.userId);
+          return { ...driver, ratingSummary: summary };
+        })
+      );
+    } catch (error) {
+      console.error("Failed to load driver rating summaries:", error);
+    }
+
+    clearUserState(chatId);
+
+    const message = getDriverLookupResultMessage(
+      text,
+      enhancedMatches,
+      CONFIG.DRIVER_CONTACT_USERNAME || "hubungi admin"
+    );
+
+    await bot.sendMessage(chatId, message, {
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.BACK_TO_MAGER }]],
       },
     });
 
@@ -385,8 +725,29 @@ function registerMessageHandlers(bot) {
   bot.on("message", async (msg) => {
     const chatId = msg.chat.id;
 
+    try {
+      await upsertUserProfile({
+        userId: msg.from.id,
+        username: msg.from.username ? `@${msg.from.username}` : null,
+        firstName: msg.from.first_name || null,
+        lastName: msg.from.last_name || null,
+        fullName: [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ") || null,
+      });
+    } catch (error) {
+      console.error("Failed to update user profile:", error);
+    }
+
     if (msg.text && msg.text.startsWith("/")) return;
     if (msg.text && /#anjem\b/i.test(msg.text)) return;
+
+    const handledRating = await handleRatingInput(msg);
+    if (handledRating) return;
+
+    const handledRatingLookup = await handleRatingLookupInput(msg);
+    if (handledRatingLookup) return;
+
+    const handledDriverLookup = await handleDriverLookupInput(msg);
+    if (handledDriverLookup) return;
 
     const handledPrice = await handlePriceInput(msg);
     if (handledPrice) return;
