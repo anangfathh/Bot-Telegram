@@ -46,6 +46,21 @@ async function initDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
     );
 
+    await pool.execute(
+      `CREATE TABLE IF NOT EXISTS drivers (
+        user_id BIGINT PRIMARY KEY,
+        username VARCHAR(64) NULL,
+        full_name VARCHAR(255) NULL,
+        status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+        joined_at DATETIME NOT NULL,
+        expires_at DATETIME NULL,
+        last_payment_at DATETIME NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_drivers_status_expires (status, expires_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+    );
+
     console.log("MySQL database connected");
     return pool;
   } catch (error) {
@@ -113,4 +128,5 @@ module.exports = {
   initDatabase,
   saveUserPost,
   getUserPosts,
+  getPool,
 };

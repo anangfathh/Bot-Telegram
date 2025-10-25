@@ -122,6 +122,82 @@ Mulai posting sekarang dengan klik "Post Mager"!`;
   return message;
 }
 
+function formatDateTimeId(date) {
+  return date
+    ? date.toLocaleString("id-ID", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+}
+
+function getDriverMenuMessage(isDriver, contactUsername) {
+  const statusLine = isDriver
+    ? "Status Anda saat ini: <b>Driver aktif</b>."
+    : "Status Anda saat ini: <b>Belum terdaftar sebagai driver</b>.";
+
+  return [
+    "🚗 <b>Menu Driver</b>",
+    statusLine,
+    "",
+    "Pendaftaran dan perpanjangan dilakukan melalui admin.",
+    `Hubungi admin driver di: <b>${contactUsername}</b>`,
+  ].join("\n");
+}
+
+function getDriverContactMessage(contactUsername) {
+  return [
+    "📨 <b>Pendaftaran Driver</b>",
+    "",
+    `Silakan hubungi admin driver di: <b>${contactUsername}</b>`,
+    "",
+    "Sampaikan data berikut saat menghubungi admin:",
+    "• Nama lengkap",
+    "• Username Telegram",
+    "• Nomor kontak",
+    "• Bukti pembayaran (jika perpanjang)",
+  ].join("\n");
+}
+
+function getDriverStatusMessage(driver, contactUsername) {
+  if (!driver) {
+    return [
+      "ℹ️ <b>Status Driver</b>",
+      "",
+      "Anda belum terdaftar sebagai driver.",
+      `Hubungi admin driver di <b>${contactUsername}</b> untuk pendaftaran.`,
+    ].join("\n");
+  }
+
+  const lines = [
+    "🚗 <b>Status Driver</b>",
+    "",
+    `<b>Nama:</b> ${driver.fullName || "-"}`,
+    `<b>Username:</b> ${driver.username || "-"}`,
+    `<b>Status:</b> ${driver.status === "active" ? "Aktif" : "Non-aktif"}`,
+  ];
+
+  if (driver.joinedAt) {
+    lines.push(`<b>Bergabung:</b> ${formatDateTimeId(driver.joinedAt)}`);
+  }
+
+  if (driver.expiresAt) {
+    lines.push(`<b>Berlaku sampai:</b> ${formatDateTimeId(driver.expiresAt)}`);
+  } else {
+    lines.push("<b>Berlaku sampai:</b> Tidak ditentukan");
+  }
+
+  if (driver.status !== "active") {
+    lines.push("");
+    lines.push(`Status Anda non-aktif. Hubungi admin di <b>${contactUsername}</b> untuk aktivasi kembali.`);
+  }
+
+  return lines.join("\n");
+}
+
 module.exports = {
   formatTimestamp,
   getWelcomeMessage,
@@ -129,4 +205,7 @@ module.exports = {
   getHelpMessage,
   getCategoryInfoMessage,
   getMyMagersMessage,
+  getDriverMenuMessage,
+  getDriverContactMessage,
+  getDriverStatusMessage,
 };

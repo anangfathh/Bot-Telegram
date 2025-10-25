@@ -2,12 +2,23 @@ const CONFIG = {
   TOKEN: process.env.TELEGRAM_BOT_TOKEN,
   CHANNEL_ID: process.env.TELEGRAM_CHANNEL_ID,
   CHANNEL_USERNAME: process.env.TELEGRAM_CHANNEL_USERNAME || "@cobaanjem",
+  DRIVER_CONTACT_USERNAME: process.env.DRIVER_CONTACT_USERNAME || "@youradmin",
+  DRIVER_GROUP_ID: process.env.DRIVER_GROUP_ID || null,
+  DRIVER_GROUP_INVITE_LINK: process.env.DRIVER_GROUP_INVITE_LINK || null,
+  DRIVER_DEFAULT_ACTIVE_DAYS: Number(process.env.DRIVER_DEFAULT_ACTIVE_DAYS || 30),
+  DRIVER_ADMIN_IDS: (process.env.DRIVER_ADMIN_IDS || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+    .map((value) => Number(value))
+    .filter((value) => !Number.isNaN(value)),
 };
 
 const STATES = {
   IDLE: "idle",
   SELECTING_CATEGORY: "selecting_category",
   WAITING_MESSAGE: "waiting_message",
+  AWAITING_DRIVER_INPUT: "awaiting_driver_input",
 };
 
 const DATABASE = {
@@ -32,6 +43,12 @@ const CALLBACK_DATA = {
   BACK_TO_MAGER: "back_to_mager",
   CLOSE_MENU: "close_menu",
   CHECK_MEMBERSHIP: "check_membership",
+  DRIVER_MENU: "driver_menu",
+  DRIVER_CONTACT: "driver_contact",
+  DRIVER_STATUS: "driver_status",
+  DRIVER_ADD: "driver_add",
+  DRIVER_RENEW: "driver_renew",
+  DRIVER_REMOVE: "driver_remove",
   CATEGORY_ANJEM: "category_anjem",
   CATEGORY_JASTIP: "category_jastip",
   CATEGORY_OPENANJEM: "category_openanjem",

@@ -5,11 +5,17 @@ function getUserState(chatId) {
   return userStates.get(chatId) || null;
 }
 
-function setUserState(chatId, state, category = null) {
+function setUserState(chatId, state, data = null) {
   const stateData = { state };
-  if (category) {
-    stateData.category = category;
+
+  if (data !== null && data !== undefined) {
+    if (typeof data === "object" && !Array.isArray(data)) {
+      Object.assign(stateData, data);
+    } else {
+      stateData.category = data;
+    }
   }
+
   userStates.set(chatId, stateData);
 }
 

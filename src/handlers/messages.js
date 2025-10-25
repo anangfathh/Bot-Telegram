@@ -1,9 +1,162 @@
-const { CONFIG, STATES } = require("../config");
+const { CONFIG, STATES, CATEGORIES } = require("../config");
 const { sendToChannel } = require("../telegram");
 const { saveUserPost } = require("../database");
 const { getUserState, clearUserState, waitingForForward } = require("../state");
+const { ensureDriverActive, registerDriver, renewDriver, removeDriver, isDriverActive } = require("../drivers");
+const { getDriverMenuMessage } = require("../messages");
+const { buildDriverMenuKeyboard } = require("../keyboards");
 
 function registerMessageHandlers(bot) {
+  const isDriverAdminUser = (userId) => CONFIG.DRIVER_ADMIN_IDS.includes(userId);
+
+  const formatDateTime = (date) =>
+    date
+      ? date.toLocaleString("id-ID", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "-";
+
+  async function handleDriverInput(msg) {
+    const chatId = msg.chat.id;
+    const userState = getUserState(chatId);
+
+    if (!userState || userState.state !== STATES.AWAITING_DRIVER_INPUT) {
+      return false;
+    }
+
+    const action = userState.action;
+    if (!["driver_add", "driver_renew", "driver_remove"].includes(action)) {
+      clearUserState(chatId);
+      return false;
+    }
+
+    if (!isDriverAdminUser(msg.from.id)) {
+      clearUserState(chatId);
+      await bot.sendMessage(chatId, "Sesi dibatalkan karena Anda bukan admin driver.");
+      return true;
+    }
+
+    if (!msg.text) {
+      await bot.sendMessage(
+        chatId,
+        action === "driver_remove"
+          ? "Kirim user ID driver yang akan dinonaktifkan. Contoh: 8375046442"
+          : "Kirim user ID dan durasi (opsional) dalam format teks. Contoh: 8375046442 30"
+      );
+      return true;
+    }
+
+    const trimmed = msg.text.trim();
+    if (!trimmed) {
+      await bot.sendMessage(chatId, "Format tidak valid. Silakan kirim ulang atau ketik BATAL.");
+      return true;
+    }
+
+    if (trimmed.toLowerCase() === "batal") {
+      clearUserState(chatId);
+      await bot.sendMessage(chatId, "Aksi dibatalkan.");
+      return true;
+    }
+
+    const parts = trimmed.split(/\s+/);
+    const targetUserId = Number(parts[0]);
+
+    if (!parts[0] || Number.isNaN(targetUserId)) {
+      await bot.sendMessage(chatId, "ID pengguna tidak valid. Contoh yang benar: 8375046442");
+      return true;
+    }
+
+    if (action === "driver_remove" && parts.length > 1) {
+      await bot.sendMessage(chatId, "Untuk menghapus driver cukup kirim 1 ID saja. Contoh: 8375046442");
+      return true;
+    }
+
+    let durationDays = undefined;
+    if (parts[1]) {
+      durationDays = Number(parts[1]);
+      if (Number.isNaN(durationDays) || durationDays <= 0) {
+        await bot.sendMessage(chatId, "Durasi harus berupa angka hari yang valid. Contoh: 30");
+        return true;
+      }
+    }
+
+    try {
+      let resultMessage = "";
+
+      if (action === "driver_add") {
+        let chatInfo = null;
+        try {
+          chatInfo = await bot.getChat(targetUserId);
+        } catch (error) {
+          console.warn("Failed to fetch chat info for driver_add (menu):", error.message);
+        }
+
+        const username = chatInfo?.username ? `@${chatInfo.username}` : undefined;
+        const fullName = chatInfo
+          ? [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(" ").trim() || undefined
+          : undefined;
+
+        const driver = await registerDriver(bot, targetUserId, {
+          username,
+          fullName,
+          durationDays,
+        });
+
+        const expiresLine = driver?.expiresAt ? formatDateTime(driver.expiresAt) : "-";
+        resultMessage = [
+          "✅ Driver berhasil ditambahkan/diaktivasi via menu.",
+          `ID: ${targetUserId}`,
+          `Nama: ${driver?.fullName || fullName || "-"}`,
+          `Username: ${driver?.username || username || "-"}`,
+          `Berlaku sampai: ${expiresLine}`,
+        ].join("\n");
+      } else if (action === "driver_renew") {
+        const driver = await renewDriver(bot, targetUserId, {
+          durationDays,
+        });
+
+        const expiresLine = driver?.expiresAt ? formatDateTime(driver.expiresAt) : "-";
+        resultMessage = [
+          "✅ Driver berhasil diperpanjang.",
+          `ID: ${targetUserId}`,
+          `Berlaku sampai: ${expiresLine}`,
+        ].join("\n");
+      } else if (action === "driver_remove") {
+        const driver = await removeDriver(bot, targetUserId, { reason: "manual" });
+
+        if (!driver) {
+          await bot.sendMessage(chatId, "Driver tidak ditemukan atau sudah non-aktif. Masukkan ID lain atau ketik BATAL.");
+          return true;
+        }
+
+        resultMessage = [
+          "✅ Driver berhasil dinonaktifkan.",
+          `ID: ${targetUserId}`,
+          `Nama: ${driver.fullName || "-"}`,
+          `Username: ${driver.username || "-"}`,
+        ].join("\n");
+      }
+
+      clearUserState(chatId);
+
+      const adminIsDriver = await isDriverActive(msg.from.id);
+
+      await bot.sendMessage(chatId, resultMessage, {
+        parse_mode: "HTML",
+        reply_markup: buildDriverMenuKeyboard(adminIsDriver, true),
+      });
+    } catch (error) {
+      console.error(`${action} (menu) failed:`, error);
+      await bot.sendMessage(chatId, `Gagal memproses driver: ${error.message}`);
+    }
+
+    return true;
+  }
+
   async function handleMessagePosting(msg) {
     const chatId = msg.chat.id;
     const userState = getUserState(chatId);
@@ -12,13 +165,39 @@ function registerMessageHandlers(bot) {
       return false;
     }
 
-    console.log(`📤 Mengirim pesan dari ${chatId} ke channel ${CONFIG.CHANNEL_ID}`);
-    console.log(`📎 Kategori: ${userState.category}`);
+    const userId = msg.from.id;
+    const requiresDriver =
+      userState.category === CATEGORIES.OPENANJEM || userState.category === CATEGORIES.OPENJASTIP;
+
+    if (requiresDriver) {
+      const check = await ensureDriverActive(bot, userId);
+      if (!check.ok) {
+        const notice =
+          check.reason === "expired"
+            ? "Masa berlaku driver Anda telah habis. Hubungi admin untuk memperpanjang."
+            : "Kategori ini hanya bisa digunakan oleh driver yang terdaftar.";
+
+        clearUserState(chatId);
+
+        await bot.sendMessage(
+          chatId,
+          `${notice}\n\n${getDriverMenuMessage(false, CONFIG.DRIVER_CONTACT_USERNAME || "hubungi admin")}`,
+          {
+            parse_mode: "HTML",
+            reply_markup: buildDriverMenuKeyboard(false, isDriverAdminUser(userId)),
+          }
+        );
+
+        return true;
+      }
+    }
+
+    console.log(`🚀 Mengirim pesan dari ${chatId} ke channel ${CONFIG.CHANNEL_ID}`);
+    console.log(`📌 Kategori: ${userState.category}`);
 
     try {
       const caption = msg.caption || msg.text || "";
       const messageText = `${userState.category}\n\n${caption}`;
-      const userId = msg.from.id;
       let sentMessage;
       let messageType;
 
@@ -43,7 +222,10 @@ function registerMessageHandlers(bot) {
           `✅ Pesan berhasil dikirim ke channel dengan kategori ${userState.category}!\n\nPesan Anda:\n${msg.text}`
         );
       } else {
-        await bot.sendMessage(chatId, "⚠️ Tipe pesan ini tidak didukung. Silakan kirim teks, foto, video, atau dokumen.");
+        await bot.sendMessage(
+          chatId,
+          "⚠️ Tipe pesan ini tidak didukung. Silakan kirim teks, foto, video, atau dokumen."
+        );
         return true;
       }
 
@@ -71,7 +253,7 @@ function registerMessageHandlers(bot) {
       return false;
     }
 
-    console.log(`📤 Mengirim pesan dari ${chatId} ke channel ${CONFIG.CHANNEL_ID}`);
+    console.log(`🚀 Mengirim pesan dari ${chatId} ke channel ${CONFIG.CHANNEL_ID}`);
 
     try {
       await sendToChannel(bot, msg.text);
@@ -92,6 +274,9 @@ function registerMessageHandlers(bot) {
 
     if (msg.text && msg.text.startsWith("/")) return;
     if (msg.text && /#anjem\b/i.test(msg.text)) return;
+
+    const handledDriver = await handleDriverInput(msg);
+    if (handledDriver) return;
 
     const isPosted = await handleMessagePosting(msg);
     if (isPosted) return;
