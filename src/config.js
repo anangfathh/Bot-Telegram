@@ -19,6 +19,8 @@ const STATES = {
   SELECTING_CATEGORY: "selecting_category",
   WAITING_MESSAGE: "waiting_message",
   AWAITING_DRIVER_INPUT: "awaiting_driver_input",
+  AWAITING_EDIT_MESSAGE: "awaiting_edit_message",
+  AWAITING_PRICE_INPUT: "awaiting_price_input",
 };
 
 const DATABASE = {
@@ -38,7 +40,9 @@ const CALLBACK_DATA = {
   EDIT_POST: "edit_post",
   CHECK_PRICE: "check_price",
   RATING: "rating",
-  CHECK_VERIFIED: "check_verified",
+  CHECK_DRIVER: "check_driver",
+  PRICE_RAIN_YES: "price_rain_yes",
+  PRICE_RAIN_NO: "price_rain_no",
   BACK_TO_MAIN: "back_to_main",
   BACK_TO_MAGER: "back_to_mager",
   CLOSE_MENU: "close_menu",
@@ -62,10 +66,18 @@ const CATEGORIES = {
   OPENJASTIP: "#OPENJASTIP",
 };
 
+const POST_EXPIRATION = {
+  [CATEGORIES.ANJEM]: 60 * 60 * 1000,
+  [CATEGORIES.JASTIP]: 5 * 60 * 60 * 1000,
+  [CATEGORIES.OPENANJEM]: 24 * 60 * 60 * 1000,
+  [CATEGORIES.OPENJASTIP]: 24 * 60 * 60 * 1000,
+};
+
 module.exports = {
   CONFIG,
   STATES,
   CALLBACK_DATA,
   CATEGORIES,
   DATABASE,
+  POST_EXPIRATION,
 };

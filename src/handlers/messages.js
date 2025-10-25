@@ -1,10 +1,11 @@
-const { CONFIG, STATES, CATEGORIES } = require("../config");
+const { CONFIG, STATES, CATEGORIES, CALLBACK_DATA } = require("../config");
 const { sendToChannel } = require("../telegram");
-const { saveUserPost } = require("../database");
-const { getUserState, clearUserState, waitingForForward } = require("../state");
+const { saveUserPost, getPostById } = require("../database");
+const { getUserState, setUserState, clearUserState, waitingForForward } = require("../state");
 const { ensureDriverActive, registerDriver, renewDriver, removeDriver, isDriverActive } = require("../drivers");
-const { getDriverMenuMessage } = require("../messages");
+const { getDriverMenuMessage, getPriceWeatherPromptMessage } = require("../messages");
 const { buildDriverMenuKeyboard } = require("../keyboards");
+const { editPost } = require("../posts");
 
 function registerMessageHandlers(bot) {
   const isDriverAdminUser = (userId) => CONFIG.DRIVER_ADMIN_IDS.includes(userId);
@@ -19,6 +20,118 @@ function registerMessageHandlers(bot) {
           minute: "2-digit",
         })
       : "-";
+
+  async function handlePriceInput(msg) {
+    const chatId = msg.chat.id;
+    const userState = getUserState(chatId);
+
+    if (!userState || userState.state !== STATES.AWAITING_PRICE_INPUT) {
+      return false;
+    }
+
+    const stage = userState.stage || "distance";
+
+    if (!msg.text) {
+      await bot.sendMessage(chatId, "Masukkan jarak dalam meter, contoh: 1500. Ketik BATAL untuk membatalkan.");
+      return true;
+    }
+
+    const text = msg.text.trim();
+    if (text.toLowerCase() === "batal") {
+      clearUserState(chatId);
+      await bot.sendMessage(chatId, "Perhitungan harga dibatalkan.");
+      return true;
+    }
+
+    if (stage === "weather") {
+      await bot.sendMessage(chatId, "Silakan pilih kondisi hujan melalui tombol yang tersedia atau ketik BATAL.");
+      return true;
+    }
+
+    const digits = text.replace(/[^\d]/g, "");
+    const distance = Number(digits);
+
+    if (!digits || Number.isNaN(distance) || distance <= 0) {
+      await bot.sendMessage(chatId, "Format jarak tidak valid. Masukkan angka dalam meter, misalnya 1500.");
+      return true;
+    }
+
+    setUserState(chatId, STATES.AWAITING_PRICE_INPUT, { stage: "weather", distance });
+
+    await bot.sendMessage(chatId, getPriceWeatherPromptMessage(distance), {
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "🌧️ Ya, hujan", callback_data: CALLBACK_DATA.PRICE_RAIN_YES },
+            { text: "🌤️ Tidak hujan", callback_data: CALLBACK_DATA.PRICE_RAIN_NO },
+          ],
+        ],
+      },
+    });
+
+    return true;
+  }
+
+  async function handleEditInput(msg) {
+    const chatId = msg.chat.id;
+    const userState = getUserState(chatId);
+
+    if (!userState || userState.state !== STATES.AWAITING_EDIT_MESSAGE) {
+      return false;
+    }
+
+    const postId = Number(userState.postId);
+    if (!postId) {
+      clearUserState(chatId);
+      return false;
+    }
+
+    if (!msg.text) {
+      await bot.sendMessage(chatId, "Kirim teks baru untuk memperbarui posting atau ketik BATAL.");
+      return true;
+    }
+
+    const newContent = msg.text.trim();
+    if (!newContent.length) {
+      await bot.sendMessage(chatId, "Konten tidak boleh kosong. Silakan kirim ulang atau ketik BATAL.");
+      return true;
+    }
+
+    if (newContent.toLowerCase() === "batal") {
+      clearUserState(chatId);
+      await bot.sendMessage(chatId, "Edit posting dibatalkan.");
+      return true;
+    }
+
+    const post = await getPostById(postId);
+    if (!post || post.userId !== msg.from.id) {
+      clearUserState(chatId);
+      await bot.sendMessage(chatId, "Posting tidak ditemukan atau bukan milik Anda.");
+      return true;
+    }
+
+    if (post.type !== "text" && newContent.length > 1024) {
+      await bot.sendMessage(chatId, "Caption untuk media maksimal 1024 karakter. Silakan kurangi isi pesan.");
+      return true;
+    }
+
+    if (post.type === "text" && newContent.length > 4096) {
+      await bot.sendMessage(chatId, "Pesan teks maksimal 4096 karakter. Silakan kurangi isi pesan.");
+      return true;
+    }
+
+    try {
+      await editPost(bot, postId, newContent);
+      clearUserState(chatId);
+      await bot.sendMessage(chatId, "✅ Post berhasil diperbarui di channel.");
+    } catch (error) {
+      console.error("Failed to edit post:", error);
+      await bot.sendMessage(chatId, `⚠️ Gagal memperbarui post: ${error.message}`);
+    }
+
+    return true;
+  }
 
   async function handleDriverInput(msg) {
     const chatId = msg.chat.id;
@@ -274,6 +387,12 @@ function registerMessageHandlers(bot) {
 
     if (msg.text && msg.text.startsWith("/")) return;
     if (msg.text && /#anjem\b/i.test(msg.text)) return;
+
+    const handledPrice = await handlePriceInput(msg);
+    if (handledPrice) return;
+
+    const handledEdit = await handleEditInput(msg);
+    if (handledEdit) return;
 
     const handledDriver = await handleDriverInput(msg);
     if (handledDriver) return;

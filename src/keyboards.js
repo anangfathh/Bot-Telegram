@@ -22,7 +22,7 @@ function buildMagerMenuKeyboard(includeMainMenu = false) {
     [
       { text: "🔍 Check Price", callback_data: CALLBACK_DATA.CHECK_PRICE },
       { text: "⭐ Rating", callback_data: CALLBACK_DATA.RATING },
-      { text: "✅ Check Verified", callback_data: CALLBACK_DATA.CHECK_VERIFIED },
+      { text: "✅ Check Driver", callback_data: CALLBACK_DATA.CHECK_DRIVER },
     ],
   ];
 

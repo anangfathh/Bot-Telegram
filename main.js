@@ -12,6 +12,7 @@ const { setBotCommands, registerCommandHandlers } = require("./src/handlers/comm
 const { registerCallbackHandlers } = require("./src/handlers/callbacks");
 const { registerMessageHandlers } = require("./src/handlers/messages");
 const { registerSystemHandlers } = require("./src/handlers/system");
+const { startPostScheduler } = require("./src/scheduler");
 
 (async () => {
   try {
@@ -28,6 +29,7 @@ const { registerSystemHandlers } = require("./src/handlers/system");
     registerCallbackHandlers(bot);
     registerMessageHandlers(bot);
     registerSystemHandlers(bot);
+    startPostScheduler(bot);
   } catch (error) {
     console.error("Failed to bootstrap application:", error);
     process.exit(1);

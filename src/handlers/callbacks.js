@@ -12,11 +12,19 @@ const {
   getDriverMenuMessage,
   getDriverContactMessage,
   getDriverStatusMessage,
+  getClosePostsMessage,
+  getEditPostsMessage,
+  getEditPostInstructionMessage,
+  getPriceDistancePromptMessage,
+  getPriceResultMessage,
+  formatTimestamp,
 } = require("../messages");
 const { sendJoinChannelMessage } = require("../telegram");
-const { setUserState, clearUserState } = require("../state");
+const { setUserState, clearUserState, getUserState } = require("../state");
 const { isUserMemberOfChannel } = require("../membership");
 const { ensureDriverActive, isDriverActive, fetchDriver } = require("../drivers");
+const { getPostById } = require("../database");
+const { getUserClosablePosts, closePost } = require("../posts");
 
 function registerCallbackHandlers(bot) {
   const isDriverAdminUser = (userId) => CONFIG.DRIVER_ADMIN_IDS.includes(userId);
@@ -24,6 +32,32 @@ function registerCallbackHandlers(bot) {
   const driverContactUrl = CONFIG.DRIVER_CONTACT_USERNAME
     ? `https://t.me/${CONFIG.DRIVER_CONTACT_USERNAME.replace("@", "")}`
     : null;
+  const CLOSE_POST_PREFIX = "close_post:";
+  const EDIT_POST_PREFIX = "edit_post:";
+  const BASE_FARE = 5000;
+  const STEP_FARE = 1000;
+
+  function buildPostSelectionKeyboard(posts, prefix, backCallback) {
+    const keyboard = posts.map((post) => [
+      {
+        text: `${post.category} • ${formatTimestamp(post.timestamp)}`,
+        callback_data: `${prefix}${post.id}`,
+      },
+    ]);
+
+    keyboard.push([{ text: "🔙 Kembali", callback_data: backCallback }]);
+    return { inline_keyboard: keyboard };
+  }
+
+  function calculateFare(distance, isRain) {
+    const multiplier = isRain ? 2 : 1;
+    const normalizedDistance = Math.max(0, Number(distance) || 0);
+    const steps = Math.max(0, Math.ceil(normalizedDistance / 500) - 1);
+    const baseFare = BASE_FARE * multiplier;
+    const stepFare = STEP_FARE * multiplier;
+    const total = baseFare + steps * stepFare;
+    return { baseFare, stepFare, steps, total };
+  }
 
   async function handleCheckMembership(query) {
     const chatId = query.message.chat.id;
@@ -217,6 +251,196 @@ function registerCallbackHandlers(bot) {
     });
   }
 
+  async function handleCloseMagerMenu(query) {
+    const chatId = query.message.chat.id;
+    const userId = query.from.id;
+    const messageId = query.message.message_id;
+
+    clearUserState(chatId);
+
+    const posts = await getUserClosablePosts(userId);
+    const message = getClosePostsMessage(posts);
+    const replyMarkup =
+      posts.length > 0
+        ? buildPostSelectionKeyboard(posts, CLOSE_POST_PREFIX, CALLBACK_DATA.BACK_TO_MAGER)
+        : { inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.BACK_TO_MAGER }]] };
+
+    await bot.editMessageText(message, {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: "HTML",
+      reply_markup: replyMarkup,
+    });
+
+    await bot.answerCallbackQuery(query.id);
+  }
+
+  async function handleClosePostSelection(query, postId) {
+    if (!postId) {
+      await bot.answerCallbackQuery(query.id, { text: "Pilihan tidak valid.", show_alert: true });
+      return;
+    }
+
+    const chatId = query.message.chat.id;
+    const userId = query.from.id;
+    const messageId = query.message.message_id;
+
+    clearUserState(chatId);
+
+    const post = await getPostById(postId);
+    if (!post || post.userId !== userId) {
+      await bot.answerCallbackQuery(query.id, { text: "Posting tidak ditemukan.", show_alert: true });
+      return;
+    }
+
+    if (post.isClosed) {
+      await bot.answerCallbackQuery(query.id, { text: "Posting sudah ditutup sebelumnya.", show_alert: true });
+      return;
+    }
+
+    try {
+      await closePost(bot, post);
+      await bot.answerCallbackQuery(query.id, { text: "Posting ditutup.", show_alert: true });
+    } catch (error) {
+      console.error("Failed to close post:", error);
+      await bot.answerCallbackQuery(query.id, { text: `Gagal menutup posting: ${error.message}`, show_alert: true });
+      return;
+    }
+
+    const remainingPosts = await getUserClosablePosts(userId);
+    const message = getClosePostsMessage(remainingPosts);
+    const replyMarkup =
+      remainingPosts.length > 0
+        ? buildPostSelectionKeyboard(remainingPosts, CLOSE_POST_PREFIX, CALLBACK_DATA.BACK_TO_MAGER)
+        : { inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.BACK_TO_MAGER }]] };
+
+    await bot.editMessageText(message, {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: "HTML",
+      reply_markup: replyMarkup,
+    });
+  }
+
+  async function handleEditPostMenu(query) {
+    const chatId = query.message.chat.id;
+    const userId = query.from.id;
+    const messageId = query.message.message_id;
+
+    clearUserState(chatId);
+
+    const posts = await getUserClosablePosts(userId);
+    const message = getEditPostsMessage(posts);
+    const replyMarkup =
+      posts.length > 0
+        ? buildPostSelectionKeyboard(posts, EDIT_POST_PREFIX, CALLBACK_DATA.BACK_TO_MAGER)
+        : { inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.BACK_TO_MAGER }]] };
+
+    await bot.editMessageText(message, {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: "HTML",
+      reply_markup: replyMarkup,
+    });
+
+    await bot.answerCallbackQuery(query.id);
+  }
+
+  async function handleEditPostSelection(query, postId) {
+    if (!postId) {
+      await bot.answerCallbackQuery(query.id, { text: "Pilihan tidak valid.", show_alert: true });
+      return;
+    }
+
+    const chatId = query.message.chat.id;
+    const userId = query.from.id;
+    const messageId = query.message.message_id;
+
+    const post = await getPostById(postId);
+    if (!post || post.userId !== userId) {
+      await bot.answerCallbackQuery(query.id, { text: "Posting tidak ditemukan.", show_alert: true });
+      return;
+    }
+
+    if (post.isClosed) {
+      await bot.answerCallbackQuery(query.id, { text: "Posting sudah ditutup dan tidak dapat diedit.", show_alert: true });
+      return;
+    }
+
+    clearUserState(chatId);
+    setUserState(chatId, STATES.AWAITING_EDIT_MESSAGE, { postId });
+
+    await bot.editMessageText(getEditPostInstructionMessage(post), {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.EDIT_POST }]],
+      },
+    });
+
+    await bot.answerCallbackQuery(query.id, { text: "Kirim teks baru untuk posting ini.", show_alert: false });
+  }
+
+  async function handleCheckPrice(query) {
+    const chatId = query.message.chat.id;
+    const messageId = query.message.message_id;
+
+    clearUserState(chatId);
+    setUserState(chatId, STATES.AWAITING_PRICE_INPUT, { stage: "distance" });
+
+    await bot.editMessageText(getPriceDistancePromptMessage(), {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.BACK_TO_MAGER }]],
+      },
+    });
+
+    await bot.answerCallbackQuery(query.id, { text: "Masukkan jarak dalam meter.", show_alert: false });
+  }
+
+  async function handlePriceWeatherSelection(query, isRain) {
+    const chatId = query.message.chat.id;
+    const messageId = query.message.message_id;
+    const userState = getUserState(chatId);
+
+    if (
+      !userState ||
+      userState.state !== STATES.AWAITING_PRICE_INPUT ||
+      userState.stage !== "weather" ||
+      typeof userState.distance !== "number"
+    ) {
+      await bot.answerCallbackQuery(query.id, { text: "Sesi perhitungan tidak ditemukan.", show_alert: true });
+      return;
+    }
+
+    const distance = userState.distance;
+    const { baseFare, stepFare, steps, total } = calculateFare(distance, isRain);
+    const resultText = getPriceResultMessage({
+      distance,
+      baseFare,
+      stepFare,
+      steps,
+      isRain,
+      total,
+    });
+
+    clearUserState(chatId);
+
+    await bot.editMessageText(resultText, {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.BACK_TO_MAGER }]],
+      },
+    });
+
+    await bot.answerCallbackQuery(query.id, { text: "Estimasi harga dihitung.", show_alert: false });
+  }
+
   async function handleDriverMenu(query) {
     const chatId = query.message.chat.id;
     const messageId = query.message.message_id;
@@ -395,6 +619,18 @@ function registerCallbackHandlers(bot) {
     const data = query.data;
 
     try {
+      if (data.startsWith(CLOSE_POST_PREFIX)) {
+        const postId = Number(data.slice(CLOSE_POST_PREFIX.length));
+        await handleClosePostSelection(query, Number.isNaN(postId) ? null : postId);
+        return;
+      }
+
+      if (data.startsWith(EDIT_POST_PREFIX)) {
+        const postId = Number(data.slice(EDIT_POST_PREFIX.length));
+        await handleEditPostSelection(query, Number.isNaN(postId) ? null : postId);
+        return;
+      }
+
       switch (data) {
         case CALLBACK_DATA.CHECK_MEMBERSHIP:
           await handleCheckMembership(query);
@@ -440,6 +676,26 @@ function registerCallbackHandlers(bot) {
           await handleMyMagers(query);
           break;
 
+        case CALLBACK_DATA.CLOSE_MAGER:
+          await handleCloseMagerMenu(query);
+          break;
+
+        case CALLBACK_DATA.EDIT_POST:
+          await handleEditPostMenu(query);
+          break;
+
+        case CALLBACK_DATA.CHECK_PRICE:
+          await handleCheckPrice(query);
+          break;
+
+        case CALLBACK_DATA.PRICE_RAIN_YES:
+          await handlePriceWeatherSelection(query, true);
+          break;
+
+        case CALLBACK_DATA.PRICE_RAIN_NO:
+          await handlePriceWeatherSelection(query, false);
+          break;
+
         case CALLBACK_DATA.DRIVER_MENU:
           await handleDriverMenu(query);
           break;
@@ -461,11 +717,7 @@ function registerCallbackHandlers(bot) {
           await handleDriverRemove(query);
           break;
 
-        case CALLBACK_DATA.CLOSE_MAGER:
-        case CALLBACK_DATA.EDIT_POST:
-        case CALLBACK_DATA.CHECK_PRICE:
         case CALLBACK_DATA.RATING:
-        case CALLBACK_DATA.CHECK_VERIFIED:
         default:
           await handleFeatureNotAvailable(query);
           break;

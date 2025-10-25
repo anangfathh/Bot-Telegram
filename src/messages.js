@@ -1,6 +1,16 @@
 const { CONFIG } = require("./config");
 const { getUserPosts } = require("./database");
 
+const rupiahFormatter = new Intl.NumberFormat("id-ID", {
+  style: "currency",
+  currency: "IDR",
+  maximumFractionDigits: 0,
+});
+
+function formatCurrency(amount) {
+  return rupiahFormatter.format(amount);
+}
+
 function formatTimestamp(timestamp) {
   const now = new Date();
   const diff = now - timestamp;
@@ -198,8 +208,99 @@ function getDriverStatusMessage(driver, contactUsername) {
   return lines.join("\n");
 }
 
+function formatPostSummary(post) {
+  const posted = formatTimestamp(post.timestamp);
+  const expires = post.expiresAt ? formatDateTimeId(post.expiresAt) : null;
+  let summary = `${post.category} • ${posted}`;
+  if (expires) {
+    summary += `\nKadaluarsa: ${expires}`;
+  }
+  return summary;
+}
+
+function getClosePostsMessage(posts) {
+  if (!posts || posts.length === 0) {
+    return "Tidak ada posting aktif yang dapat ditutup.";
+  }
+
+  let message = "🔒 <b>Tutup Posting</b>\n\nPilih posting yang ingin ditutup:\n\n";
+  posts.forEach((post, index) => {
+    message += `${index + 1}. ${formatPostSummary(post)}\n\n`;
+  });
+  message += "Sentuh salah satu tombol di bawah untuk menutup posting.";
+  return message;
+}
+
+function getEditPostsMessage(posts) {
+  if (!posts || posts.length === 0) {
+    return "Tidak ada posting aktif yang dapat diedit.";
+  }
+
+  let message = "✏️ <b>Edit Posting</b>\n\nPilih posting yang ingin diperbarui:\n\n";
+  posts.forEach((post, index) => {
+    message += `${index + 1}. ${formatPostSummary(post)}\n\n`;
+  });
+  message += "Sentuh salah satu tombol di bawah untuk mengedit isi posting.";
+  return message;
+}
+
+function getEditPostInstructionMessage(post) {
+  const contentPreview = post.message ? post.message.slice(0, 200) : "(tidak ada isi)";
+  return [
+    "✏️ <b>Edit Posting</b>",
+    "",
+    `Kategori: <b>${post.category}</b>`,
+    post.expiresAt ? `Kadaluarsa: ${formatDateTimeId(post.expiresAt)}` : null,
+    "",
+    "<b>Isi saat ini:</b>",
+    contentPreview,
+    "",
+    "Kirim teks pengganti untuk memperbarui posting ini.",
+    "Ketik <b>BATAL</b> untuk membatalkan.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function getPriceDistancePromptMessage() {
+  return [
+    "💰 <b>Hitung Ongkos</b>",
+    "",
+    "Masukkan jarak tempuh dalam meter (contoh: <code>1500</code>).",
+    "Ketik <b>BATAL</b> untuk membatalkan.",
+  ].join("\n");
+}
+
+function getPriceWeatherPromptMessage(distanceMeters) {
+  return [
+    "🌦️ Apakah saat ini hujan?",
+    "",
+    `Jarak: <b>${distanceMeters} meter</b>`,
+    "",
+    "Pilih salah satu opsi di bawah.",
+  ].join("\n");
+}
+
+function getPriceResultMessage({ distance, baseFare, stepFare, steps, isRain, total }) {
+  const lines = [
+    "💸 <b>Estimasi Ongkos</b>",
+    "",
+    `Jarak: <b>${distance} meter</b>`,
+    `Kondisi: <b>${isRain ? "Hujan" : "Tidak hujan"}</b>`,
+    "",
+    `Biaya dasar: ${formatCurrency(baseFare)}`,
+    `Kelipatan 500m (${steps}x): ${formatCurrency(stepFare * steps)}`,
+    "",
+    `Total: <b>${formatCurrency(total)}</b>`,
+  ];
+
+  return lines.join("\n");
+}
+
 module.exports = {
   formatTimestamp,
+  formatDateTimeId,
+  formatCurrency,
   getWelcomeMessage,
   getJoinChannelMessage,
   getHelpMessage,
@@ -208,4 +309,10 @@ module.exports = {
   getDriverMenuMessage,
   getDriverContactMessage,
   getDriverStatusMessage,
+  getClosePostsMessage,
+  getEditPostsMessage,
+  getEditPostInstructionMessage,
+  getPriceDistancePromptMessage,
+  getPriceWeatherPromptMessage,
+  getPriceResultMessage,
 };
