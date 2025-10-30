@@ -13,6 +13,15 @@
   "main": "main.js",
   "scripts": {
     "dev": "nodemon main.js",
+    "start": "node main.js",
+    "kill": "taskkill /F /IM node.exe",
+    "restart": "npm run kill && npm run dev",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop telegram-bot",
+    "pm2:restart": "pm2 restart telegram-bot",
+    "pm2:delete": "pm2 delete telegram-bot",
+    "pm2:logs": "pm2 logs telegram-bot",
+    "pm2:monit": "pm2 monit",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {

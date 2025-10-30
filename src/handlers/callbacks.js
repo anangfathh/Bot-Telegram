@@ -1,10 +1,5 @@
 const { CONFIG, STATES, CALLBACK_DATA, CATEGORIES } = require("../config");
-const {
-  buildMainMenuKeyboard,
-  buildMagerMenuKeyboard,
-  buildCategoryKeyboard,
-  buildDriverMenuKeyboard,
-} = require("../keyboards");
+const { buildMainMenuKeyboard, buildMagerMenuKeyboard, buildCategoryKeyboard, buildDriverMenuKeyboard } = require("../keyboards");
 const {
   getWelcomeMessage,
   getCategoryInfoMessage,
@@ -35,12 +30,43 @@ const { ensureDriverActive, isDriverActive, fetchDriver } = require("../drivers"
 const { getPostById } = require("../database");
 const { getUserClosablePosts, closePost } = require("../posts");
 
+/**
+ * Safe wrapper for editMessageText with fallback to sendMessage
+ * Handles "query is too old" and other edit failures gracefully
+ */
+async function safeEditOrSend(bot, chatId, messageId, text, extra = {}) {
+  try {
+    // Try to edit message if messageId exists
+    if (messageId) {
+      await bot.editMessageText(text, { chat_id: chatId, message_id: messageId, ...extra });
+      return;
+    }
+  } catch (err) {
+    // Check if error is due to expired/invalid query
+    const desc = err && err.response && err.response.body && err.response.body.description;
+    if (desc) {
+      if (desc.includes("query is too old") || desc.includes("message to edit not found") || desc.includes("message is not modified")) {
+        console.warn("⚠️ editMessageText failed (expired/invalid/not modified). Sending new message instead.");
+      } else {
+        console.error("❌ editMessageText error:", err && err.message ? err.message : err);
+      }
+    } else {
+      console.error("❌ editMessageText error:", err && err.message ? err.message : err);
+    }
+  }
+
+  // Fallback: send new message
+  try {
+    await bot.sendMessage(chatId, text, extra);
+  } catch (sendErr) {
+    console.error("❌ sendMessage fallback failed:", sendErr && sendErr.message ? sendErr.message : sendErr);
+  }
+}
+
 function registerCallbackHandlers(bot) {
   const isDriverAdminUser = (userId) => CONFIG.DRIVER_ADMIN_IDS.includes(userId);
   const driverContactUsername = CONFIG.DRIVER_CONTACT_USERNAME || "hubungi admin";
-  const driverContactUrl = CONFIG.DRIVER_CONTACT_USERNAME
-    ? `https://t.me/${CONFIG.DRIVER_CONTACT_USERNAME.replace("@", "")}`
-    : null;
+  const driverContactUrl = CONFIG.DRIVER_CONTACT_USERNAME ? `https://t.me/${CONFIG.DRIVER_CONTACT_USERNAME.replace("@", "")}` : null;
   const CLOSE_POST_PREFIX = "close_post:";
   const EDIT_POST_PREFIX = "edit_post:";
   const RATING_SCORE_PREFIX = "rating_score:";
@@ -112,19 +138,17 @@ function registerCallbackHandlers(bot) {
     const isMember = await isUserMemberOfChannel(bot, userId);
 
     if (!isMember) {
-      await bot.answerCallbackQuery(query.id);
+      await bot.answerCallbackQuery(query.id).catch(() => {});
       await bot.deleteMessage(chatId, messageId).catch(() => {});
       await sendJoinChannelMessage(bot, chatId);
       return;
     }
 
-    await bot.editMessageText("🚦 Select mager", {
-      chat_id: chatId,
-      message_id: messageId,
+    await safeEditOrSend(bot, chatId, messageId, "🚦 Select mager", {
       reply_markup: buildMagerMenuKeyboard(true),
     });
 
-    await bot.answerCallbackQuery(query.id);
+    await bot.answerCallbackQuery(query.id).catch(() => {});
   }
 
   async function handleBackToMain(query) {
@@ -134,37 +158,30 @@ function registerCallbackHandlers(bot) {
 
     const welcomeText = getWelcomeMessage(firstName, true);
 
-    await bot.editMessageText(welcomeText, {
-      chat_id: chatId,
-      message_id: messageId,
+    await safeEditOrSend(bot, chatId, messageId, welcomeText, {
       parse_mode: "HTML",
       reply_markup: buildMainMenuKeyboard(),
     });
 
-    await bot.answerCallbackQuery(query.id);
+    await bot.answerCallbackQuery(query.id).catch(() => {});
   }
 
   async function handlePostMager(query) {
     const chatId = query.message.chat.id;
     const messageId = query.message.message_id;
 
-    await bot.editMessageText("🚦 Select mager", {
-      chat_id: chatId,
-      message_id: messageId,
+    await safeEditOrSend(bot, chatId, messageId, "🚦 Select mager", {
       reply_markup: buildCategoryKeyboard(),
     });
 
-    await bot.answerCallbackQuery(query.id);
+    await bot.answerCallbackQuery(query.id).catch(() => {});
   }
 
   async function handleDriverAccessDenied(query, reason) {
     const chatId = query.message.chat.id;
     const messageId = query.message.message_id;
 
-    const alertMessage =
-      reason === "expired"
-        ? "Masa berlaku driver Anda telah habis. Hubungi admin untuk memperpanjang."
-        : "Menu ini hanya dapat diakses oleh driver aktif.";
+    const alertMessage = reason === "expired" ? "Masa berlaku driver Anda telah habis. Hubungi admin untuk memperpanjang." : "Menu ini hanya dapat diakses oleh driver aktif.";
 
     await bot.answerCallbackQuery(query.id, {
       text: alertMessage,
@@ -213,13 +230,11 @@ function registerCallbackHandlers(bot) {
 
     clearUserState(chatId);
 
-    await bot.editMessageText("🚦 Select mager", {
-      chat_id: chatId,
-      message_id: messageId,
+    await safeEditOrSend(bot, chatId, messageId, "🚦 Select mager", {
       reply_markup: buildMagerMenuKeyboard(true),
     });
 
-    await bot.answerCallbackQuery(query.id);
+    await bot.answerCallbackQuery(query.id).catch(() => {});
   }
 
   async function handleCloseMenu(query) {
@@ -263,10 +278,7 @@ function registerCallbackHandlers(bot) {
       message_id: messageId,
       parse_mode: "HTML",
       reply_markup: {
-        inline_keyboard: [
-          [{ text: "🔗 Lihat di Channel", url: `https://t.me/${CONFIG.CHANNEL_USERNAME.replace("@", "")}` }],
-          [{ text: "🔙 Back to Menu", callback_data: CALLBACK_DATA.BACK_TO_MAGER }],
-        ],
+        inline_keyboard: [[{ text: "🔗 Lihat di Channel", url: `https://t.me/${CONFIG.CHANNEL_USERNAME.replace("@", "")}` }], [{ text: "🔙 Back to Menu", callback_data: CALLBACK_DATA.BACK_TO_MAGER }]],
       },
     });
   }
@@ -280,10 +292,7 @@ function registerCallbackHandlers(bot) {
 
     const posts = await getUserClosablePosts(userId);
     const message = getClosePostsMessage(posts);
-    const replyMarkup =
-      posts.length > 0
-        ? buildPostSelectionKeyboard(posts, CLOSE_POST_PREFIX, CALLBACK_DATA.BACK_TO_MAGER)
-        : { inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.BACK_TO_MAGER }]] };
+    const replyMarkup = posts.length > 0 ? buildPostSelectionKeyboard(posts, CLOSE_POST_PREFIX, CALLBACK_DATA.BACK_TO_MAGER) : { inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.BACK_TO_MAGER }]] };
 
     await bot.editMessageText(message, {
       chat_id: chatId,
@@ -329,10 +338,7 @@ function registerCallbackHandlers(bot) {
 
     const remainingPosts = await getUserClosablePosts(userId);
     const message = getClosePostsMessage(remainingPosts);
-    const replyMarkup =
-      remainingPosts.length > 0
-        ? buildPostSelectionKeyboard(remainingPosts, CLOSE_POST_PREFIX, CALLBACK_DATA.BACK_TO_MAGER)
-        : { inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.BACK_TO_MAGER }]] };
+    const replyMarkup = remainingPosts.length > 0 ? buildPostSelectionKeyboard(remainingPosts, CLOSE_POST_PREFIX, CALLBACK_DATA.BACK_TO_MAGER) : { inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.BACK_TO_MAGER }]] };
 
     await bot.editMessageText(message, {
       chat_id: chatId,
@@ -351,10 +357,7 @@ function registerCallbackHandlers(bot) {
 
     const posts = await getUserClosablePosts(userId);
     const message = getEditPostsMessage(posts);
-    const replyMarkup =
-      posts.length > 0
-        ? buildPostSelectionKeyboard(posts, EDIT_POST_PREFIX, CALLBACK_DATA.BACK_TO_MAGER)
-        : { inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.BACK_TO_MAGER }]] };
+    const replyMarkup = posts.length > 0 ? buildPostSelectionKeyboard(posts, EDIT_POST_PREFIX, CALLBACK_DATA.BACK_TO_MAGER) : { inline_keyboard: [[{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.BACK_TO_MAGER }]] };
 
     await bot.editMessageText(message, {
       chat_id: chatId,
@@ -458,12 +461,7 @@ function registerCallbackHandlers(bot) {
     const chatId = query.message.chat.id;
     const userState = getUserState(chatId);
 
-    if (
-      !userState ||
-      userState.state !== STATES.AWAITING_RATING_SCORE ||
-      !userState.targetUserId ||
-      !userState.targetDisplay
-    ) {
+    if (!userState || userState.state !== STATES.AWAITING_RATING_SCORE || !userState.targetUserId || !userState.targetDisplay) {
       await bot.answerCallbackQuery(query.id, { text: "Sesi rating tidak ditemukan.", show_alert: true });
       return;
     }
@@ -505,12 +503,7 @@ function registerCallbackHandlers(bot) {
     const messageId = query.message.message_id;
     const userState = getUserState(chatId);
 
-    if (
-      !userState ||
-      userState.state !== STATES.AWAITING_PRICE_INPUT ||
-      userState.stage !== "weather" ||
-      typeof userState.distance !== "number"
-    ) {
+    if (!userState || userState.state !== STATES.AWAITING_PRICE_INPUT || userState.stage !== "weather" || typeof userState.distance !== "number") {
       await bot.answerCallbackQuery(query.id, { text: "Sesi perhitungan tidak ditemukan.", show_alert: true });
       return;
     }
@@ -580,15 +573,7 @@ function registerCallbackHandlers(bot) {
 
     await bot.sendMessage(
       chatId,
-      [
-        "🧑‍✈️ <b>Tambah Driver</b>",
-        "",
-        "Kirim user ID dan durasi (opsional) dengan format:",
-        "<code>8375046442 30</code>",
-        "",
-        "• Tanpa durasi → pakai default.",
-        "• Ketik <b>BATAL</b> untuk membatalkan.",
-      ].join("\n"),
+      ["🧑‍✈️ <b>Tambah Driver</b>", "", "Kirim user ID dan durasi (opsional) dengan format:", "<code>8375046442 30</code>", "", "• Tanpa durasi → pakai default.", "• Ketik <b>BATAL</b> untuk membatalkan."].join("\n"),
       { parse_mode: "HTML" }
     );
   }
@@ -614,15 +599,7 @@ function registerCallbackHandlers(bot) {
 
     await bot.sendMessage(
       chatId,
-      [
-        "♻️ <b>Perpanjang Driver</b>",
-        "",
-        "Kirim user ID dan durasi (opsional) dengan format:",
-        "<code>8375046442 30</code>",
-        "",
-        "• Jika durasi kosong → pakai default.",
-        "• Ketik <b>BATAL</b> untuk membatalkan.",
-      ].join("\n"),
+      ["♻️ <b>Perpanjang Driver</b>", "", "Kirim user ID dan durasi (opsional) dengan format:", "<code>8375046442 30</code>", "", "• Jika durasi kosong → pakai default.", "• Ketik <b>BATAL</b> untuk membatalkan."].join("\n"),
       { parse_mode: "HTML" }
     );
   }
@@ -648,15 +625,7 @@ function registerCallbackHandlers(bot) {
 
     await bot.sendMessage(
       chatId,
-      [
-        "🗑️ <b>Hapus Driver</b>",
-        "",
-        "Kirim user ID driver yang akan dinonaktifkan:",
-        "<code>8375046442</code>",
-        "",
-        "• Pastikan ID benar sebelum menghapus.",
-        "• Ketik <b>BATAL</b> untuk membatalkan.",
-      ].join("\n"),
+      ["🗑️ <b>Hapus Driver</b>", "", "Kirim user ID driver yang akan dinonaktifkan:", "<code>8375046442</code>", "", "• Pastikan ID benar sebelum menghapus.", "• Ketik <b>BATAL</b> untuk membatalkan."].join("\n"),
       { parse_mode: "HTML" }
     );
   }
