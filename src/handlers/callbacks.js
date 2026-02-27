@@ -119,7 +119,7 @@ function registerCallbackHandlers(bot) {
       });
 
       await bot.deleteMessage(chatId, messageId).catch(() => {});
-      await bot.sendMessage(chatId, "🚦 Select mager", {
+      await bot.sendMessage(chatId, "🚦 Select Option", {
         reply_markup: buildMagerMenuKeyboard(true),
       });
     } else {
@@ -144,7 +144,7 @@ function registerCallbackHandlers(bot) {
       return;
     }
 
-    await safeEditOrSend(bot, chatId, messageId, "🚦 Select mager", {
+    await safeEditOrSend(bot, chatId, messageId, "🚦 Select Option", {
       reply_markup: buildMagerMenuKeyboard(true),
     });
 
@@ -170,7 +170,7 @@ function registerCallbackHandlers(bot) {
     const chatId = query.message.chat.id;
     const messageId = query.message.message_id;
 
-    await safeEditOrSend(bot, chatId, messageId, "🚦 Select mager", {
+    await safeEditOrSend(bot, chatId, messageId, "🚦 Select Option", {
       reply_markup: buildCategoryKeyboard(),
     });
 
@@ -230,7 +230,7 @@ function registerCallbackHandlers(bot) {
 
     clearUserState(chatId);
 
-    await safeEditOrSend(bot, chatId, messageId, "🚦 Select mager", {
+    await safeEditOrSend(bot, chatId, messageId, "🚦 Select Option", {
       reply_markup: buildMagerMenuKeyboard(true),
     });
 

@@ -39,15 +39,20 @@ function formatTimestamp(timestamp) {
 
 function getWelcomeMessage(firstName, isMember) {
   const membershipWarning = !isMember
-    ? "\n⚠️ <i>Harap join channel terlebih dahulu untuk mengakses fitur Mager</i>\n"
+    ? "\n⚠️ <i>Harap join channel terlebih dahulu untuk mengakses fitur KampusGO Undip</i>\n"
     : "";
 
   return `Hai ${firstName}! 👋
 
-Selamat datang di <b>Kampusku Bot</b> 🎓
+Selamat datang di <b>KampusGo Undip Bot</b>🎓 
+  
+Kami hadir untuk memberikan kemudahan, silahkan bergabung dan posting kebutuhanmu sekarang juga! 
+  
+CP : nomor admin
+
 
 Gunakan bot ini untuk:
-• 🎯 <b>Lalala Mager</b> - Cari & posting tumpangan
+• 🎯 <b>KampusGo Undip</b> - Cari & posting tumpangan
 ${membershipWarning}
 Ketik /help untuk panduan lengkap.`;
 }
@@ -55,7 +60,7 @@ Ketik /help untuk panduan lengkap.`;
 function getJoinChannelMessage() {
   return `⚠️ <b>Akses Ditolak</b>
 
-Untuk menggunakan fitur Mager, Anda harus join channel terlebih dahulu:
+Untuk menggunakan fitur KampusGO Undip, Anda harus join channel terlebih dahulu:
 
 📢 Channel: ${CONFIG.CHANNEL_USERNAME}
 
@@ -63,19 +68,19 @@ Setelah join, klik tombol "Saya Sudah Join" untuk verifikasi.`;
 }
 
 function getHelpMessage() {
-  return `📖 <b>Panduan Kampusku Bot</b>
+  return `📖 <b>Panduan KampusGO Undip Bot</b>
 
-🎯 <b>Lalala MAGER</b>
+🎯 <b>KampusGO Undip</b>
 Cari atau posting tumpangan ke kampus/tempat lain
-• /mager - Buka menu mager
+• /go - Buka menu Go
 • #ANJEM - Cari tumpangan
 • #JASTIP - Jastip barang
 • #OPENANJEM - Buka jasa antar
 • #OPENJASTIP - Buka jasa titip
 
 📌 <b>CARA POSTING</b>
-1. Ketik command /mager
-2. Pilih "Post Mager"
+1. Ketik command /go
+2. Pilih "Post GO"
 3. Pilih kategori (#ANJEM, #JASTIP, dll)
 4. Kirim pesanmu
 5. Selesai! Postingan terkirim ke channel
@@ -108,14 +113,14 @@ async function getMyMagersMessage(userId) {
   const posts = await getUserPosts(userId, 5);
 
   if (posts.length === 0) {
-    return `📋 <b>My Magers</b>
+    return `📋 <b>History</b>
 
 Anda belum memiliki postingan.
 
-Mulai posting sekarang dengan klik "Post Mager"!`;
+Mulai posting sekarang dengan klik "Post GO"!`;
   }
 
-  let message = `📋 <b>My Magers</b>\n\n`;
+  let message = `📋 <b>History</b>\n\n`;
   message += `Menampilkan ${posts.length} postingan terakhir Anda:\n\n`;
 
   posts.forEach((post, index) => {

@@ -1,0 +1,75 @@
+# Docker ignore file - Backend
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+TROUBLESHOOTING.md
+DOCKER*.md
+CHANGELOG.md
+LICENSE
+*.md
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Docker
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+Makefile
+
+# Testing
+test/
+tests/
+__tests__/
+*.test.js
+*.spec.js
+coverage/
+
+# Development
+.editorconfig
+.eslintrc*
+.prettierrc*
+nodemon.json
+
+# PM2
+ecosystem.config.js
+
+# Frontend
+frontend/
+
+# Misc
+.cache/
+.tmp/

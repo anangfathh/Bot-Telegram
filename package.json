@@ -22,10 +22,20 @@
     "pm2:delete": "pm2 delete telegram-bot",
     "pm2:logs": "pm2 logs telegram-bot",
     "pm2:monit": "pm2 monit",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f bot",
+    "docker:restart": "docker-compose restart bot",
+    "docker:ps": "docker-compose ps",
+    "docker:clean": "docker-compose down -v",
+    "docker:rebuild": "docker-compose up -d --build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
+    "express": "^5.2.1",
     "mysql2": "^3.15.2",
     "node-telegram-bot-api": "^0.66.0"
   }

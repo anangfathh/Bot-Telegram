@@ -1,0 +1,161 @@
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: telegram-bot-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root_password}
+      MYSQL_DATABASE: ${DB_NAME:-mager_bot}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - bot-network
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+
+  # Telegram Bot + API Server
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: telegram-bot-app
+    restart: unless-stopped
+    environment:
+      # Telegram Configuration
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHANNEL_ID: ${TELEGRAM_CHANNEL_ID}
+      TELEGRAM_CHANNEL_USERNAME: ${TELEGRAM_CHANNEL_USERNAME:-@cobaanjem}
+
+      # Driver Configuration
+      DRIVER_CONTACT_USERNAME: ${DRIVER_CONTACT_USERNAME:-@youradmin}
+      DRIVER_GROUP_ID: ${DRIVER_GROUP_ID}
+      DRIVER_GROUP_INVITE_LINK: ${DRIVER_GROUP_INVITE_LINK}
+      DRIVER_DEFAULT_ACTIVE_DAYS: ${DRIVER_DEFAULT_ACTIVE_DAYS:-30}
+      DRIVER_ADMIN_IDS: ${DRIVER_ADMIN_IDS}
+
+      # Database Configuration
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-root_password}
+      DB_NAME: ${DB_NAME:-mager_bot}
+      DB_CONNECTION_LIMIT: ${DB_CONNECTION_LIMIT:-10}
+
+      # API Configuration
+      API_PORT: 3001
+
+      # Node Environment
+      NODE_ENV: production
+    ports:
+      - "${API_PORT:-3001}:3001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - bot-network
+    volumes:
+      - ./logs:/app/logs
+    command: ["node", "main.js"]
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: false
+    tmpfs:
+      - /tmp:noexec,nosuid,size=50M
+
+  # Frontend (Vue.js with Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    container_name: telegram-bot-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - bot
+    networks:
+      - bot-network
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:noexec,nosuid,size=50M
+      - /var/run:noexec,nosuid,size=10M
+      - /tmp:noexec,nosuid,size=10M
+
+networks:
+  bot-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local

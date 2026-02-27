@@ -13,12 +13,17 @@ const { registerCallbackHandlers } = require("./src/handlers/callbacks");
 const { registerMessageHandlers } = require("./src/handlers/messages");
 const { registerSystemHandlers } = require("./src/handlers/system");
 const { startPostScheduler } = require("./src/scheduler");
+const { startApiServer } = require("./src/api");
 
 let bot;
+let apiServer;
 
 (async () => {
   try {
     await initDatabase();
+
+    // Start API Server
+    apiServer = await startApiServer();
 
     bot = createBot();
 
@@ -73,3 +78,4 @@ async function gracefulShutdown() {
     process.exit(1);
   }
 }
+

@@ -1,0 +1,500 @@
+const express = require("express");
+const cors = require("cors");
+const { getPool } = require("./database");
+
+const app = express();
+const API_PORT = process.env.API_PORT || 3001;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// ========================================
+// Users Endpoints
+// ========================================
+
+app.get("/api/users", async (req, res) => {
+  try {
+    const db = getPool();
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+    const search = req.query.search || "";
+
+    let query = `SELECT user_id, username, first_name, last_name, full_name, last_seen_at, created_at FROM users`;
+    let countQuery = `SELECT COUNT(*) as total FROM users`;
+    const params = [];
+    const countParams = [];
+
+    if (search) {
+      const searchCondition = ` WHERE username LIKE ? OR full_name LIKE ? OR first_name LIKE ?`;
+      query += searchCondition;
+      countQuery += searchCondition;
+      const searchParam = `%${search}%`;
+      params.push(searchParam, searchParam, searchParam);
+      countParams.push(searchParam, searchParam, searchParam);
+    }
+
+    query += ` ORDER BY last_seen_at DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+
+    const [rows] = await db.query(query, params);
+    const [[{ total }]] = await db.query(countQuery, countParams);
+
+    res.json({
+      data: rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/api/users/search", async (req, res) => {
+  try {
+    const db = getPool();
+    const q = (req.query.q || "").trim().toLowerCase();
+    if (!q) {
+      return res.json({ data: [] });
+    }
+
+    const [rows] = await db.query(
+      `SELECT user_id, username, first_name, last_name, full_name, last_seen_at
+       FROM users
+       WHERE LOWER(username) LIKE ? OR LOWER(full_name) LIKE ?
+       ORDER BY last_seen_at DESC
+       LIMIT 10`,
+      [`%${q}%`, `%${q}%`]
+    );
+
+    res.json({ data: rows });
+  } catch (error) {
+    console.error("Error searching users:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/api/users/:userId", async (req, res) => {
+  try {
+    const db = getPool();
+    const [rows] = await db.execute(
+      `SELECT user_id, username, first_name, last_name, full_name, last_seen_at, created_at
+       FROM users WHERE user_id = ?`,
+      [req.params.userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ data: rows[0] });
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ========================================
+// Posts Endpoints
+// ========================================
+
+app.get("/api/posts", async (req, res) => {
+  try {
+    const db = getPool();
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+    const category = req.query.category || "";
+    const status = req.query.status || "";
+
+    let query = `SELECT p.*, u.username, u.full_name as user_full_name 
+                 FROM user_posts p 
+                 LEFT JOIN users u ON p.user_id = u.user_id`;
+    let countQuery = `SELECT COUNT(*) as total FROM user_posts p`;
+    const conditions = [];
+    const params = [];
+    const countParams = [];
+
+    if (category) {
+      conditions.push(`p.category = ?`);
+      params.push(category);
+      countParams.push(category);
+    }
+
+    if (status === "active") {
+      conditions.push(`p.is_closed = 0`);
+    } else if (status === "closed") {
+      conditions.push(`p.is_closed = 1`);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ` + conditions.join(" AND ");
+      countQuery += ` WHERE ` + conditions.join(" AND ");
+    }
+
+    query += ` ORDER BY p.timestamp DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+
+    const [rows] = await db.query(query, params);
+    const [[{ total }]] = await db.query(countQuery, countParams);
+
+    res.json({
+      data: rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching posts:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/api/posts/:postId", async (req, res) => {
+  try {
+    const db = getPool();
+    const [rows] = await db.execute(
+      `SELECT p.*, u.username, u.full_name as user_full_name 
+       FROM user_posts p 
+       LEFT JOIN users u ON p.user_id = u.user_id
+       WHERE p.id = ?`,
+      [req.params.postId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+
+    res.json({ data: rows[0] });
+  } catch (error) {
+    console.error("Error fetching post:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.put("/api/posts/:postId", async (req, res) => {
+  try {
+    const db = getPool();
+    const { message, is_closed } = req.body;
+    const postId = req.params.postId;
+
+    const updates = [];
+    const params = [];
+
+    if (message !== undefined) {
+      updates.push(`message = ?`);
+      params.push(message);
+    }
+
+    if (is_closed !== undefined) {
+      updates.push(`is_closed = ?`);
+      params.push(is_closed ? 1 : 0);
+      if (is_closed) {
+        updates.push(`closed_at = NOW()`);
+      }
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: "No fields to update" });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    params.push(postId);
+
+    await db.execute(`UPDATE user_posts SET ${updates.join(", ")} WHERE id = ?`, params);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error updating post:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.delete("/api/posts/:postId", async (req, res) => {
+  try {
+    const db = getPool();
+    await db.execute(`DELETE FROM user_posts WHERE id = ?`, [req.params.postId]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting post:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ========================================
+// Ratings Endpoints
+// ========================================
+
+app.get("/api/ratings", async (req, res) => {
+  try {
+    const db = getPool();
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    const [rows] = await db.query(
+      `SELECT r.*, 
+              tu.username as target_username, tu.full_name as target_full_name,
+              ru.username as rater_username, ru.full_name as rater_full_name
+       FROM user_ratings r
+       LEFT JOIN users tu ON r.target_user_id = tu.user_id
+       LEFT JOIN users ru ON r.rated_by_user_id = ru.user_id
+       ORDER BY r.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [limit, offset]
+    );
+
+    const [[{ total }]] = await db.execute(`SELECT COUNT(*) as total FROM user_ratings`);
+
+    res.json({
+      data: rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching ratings:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/api/ratings/user/:userId", async (req, res) => {
+  try {
+    const db = getPool();
+    const [rows] = await db.execute(
+      `SELECT r.*, ru.username as rater_username, ru.full_name as rater_full_name
+       FROM user_ratings r
+       LEFT JOIN users ru ON r.rated_by_user_id = ru.user_id
+       WHERE r.target_user_id = ?
+       ORDER BY r.created_at DESC`,
+      [req.params.userId]
+    );
+
+    const [[summary]] = await db.execute(
+      `SELECT COUNT(*) as total_ratings, AVG(score) as average_score
+       FROM user_ratings WHERE target_user_id = ?`,
+      [req.params.userId]
+    );
+
+    res.json({
+      data: rows,
+      summary: {
+        total: summary.total_ratings,
+        average: summary.average_score ? parseFloat(summary.average_score).toFixed(2) : null,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching user ratings:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ========================================
+// Drivers Endpoints
+// ========================================
+
+app.get("/api/drivers", async (req, res) => {
+  try {
+    const db = getPool();
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+    const status = req.query.status || "";
+
+    let query = `SELECT * FROM drivers`;
+    let countQuery = `SELECT COUNT(*) as total FROM drivers`;
+    const params = [];
+    const countParams = [];
+
+    if (status) {
+      query += ` WHERE status = ?`;
+      countQuery += ` WHERE status = ?`;
+      params.push(status);
+      countParams.push(status);
+    }
+
+    query += ` ORDER BY joined_at DESC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+
+    const [rows] = await db.query(query, params);
+    const [[{ total }]] = await db.query(countQuery, countParams);
+
+    res.json({
+      data: rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching drivers:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/api/drivers/:userId", async (req, res) => {
+  try {
+    const db = getPool();
+    const [rows] = await db.execute(`SELECT * FROM drivers WHERE user_id = ?`, [req.params.userId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Driver not found" });
+    }
+
+    res.json({ data: rows[0] });
+  } catch (error) {
+    console.error("Error fetching driver:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.post("/api/drivers", async (req, res) => {
+  try {
+    const db = getPool();
+    const { user_id, username, full_name, duration_days } = req.body;
+
+    if (!user_id) {
+      return res.status(400).json({ error: "user_id is required" });
+    }
+
+    const now = new Date();
+    const days = parseInt(duration_days) || 30;
+    const expiresAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+    await db.execute(
+      `INSERT INTO drivers (user_id, username, full_name, status, joined_at, expires_at, last_payment_at)
+       VALUES (?, ?, ?, 'active', ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         username = VALUES(username),
+         full_name = VALUES(full_name),
+         status = 'active',
+         expires_at = VALUES(expires_at),
+         last_payment_at = VALUES(last_payment_at)`,
+      [user_id, username || null, full_name || null, now, expiresAt, now]
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error creating driver:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.put("/api/drivers/:userId", async (req, res) => {
+  try {
+    const db = getPool();
+    const { username, full_name, status, extend_days } = req.body;
+    const userId = req.params.userId;
+
+    const updates = [];
+    const params = [];
+
+    if (username !== undefined) {
+      updates.push(`username = ?`);
+      params.push(username);
+    }
+
+    if (full_name !== undefined) {
+      updates.push(`full_name = ?`);
+      params.push(full_name);
+    }
+
+    if (status !== undefined) {
+      updates.push(`status = ?`);
+      params.push(status);
+    }
+
+    if (extend_days) {
+      const days = parseInt(extend_days);
+      updates.push(`expires_at = DATE_ADD(GREATEST(expires_at, NOW()), INTERVAL ? DAY)`);
+      updates.push(`last_payment_at = NOW()`);
+      params.push(days);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: "No fields to update" });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    params.push(userId);
+
+    await db.execute(`UPDATE drivers SET ${updates.join(", ")} WHERE user_id = ?`, params);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error updating driver:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.delete("/api/drivers/:userId", async (req, res) => {
+  try {
+    const db = getPool();
+    await db.execute(`DELETE FROM drivers WHERE user_id = ?`, [req.params.userId]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting driver:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ========================================
+// Dashboard Stats Endpoint
+// ========================================
+
+app.get("/api/stats", async (req, res) => {
+  try {
+    const db = getPool();
+
+    const [[usersCount]] = await db.execute(`SELECT COUNT(*) as count FROM users`);
+    const [[postsCount]] = await db.execute(`SELECT COUNT(*) as count FROM user_posts`);
+    const [[activePostsCount]] = await db.execute(`SELECT COUNT(*) as count FROM user_posts WHERE is_closed = 0`);
+    const [[driversCount]] = await db.execute(`SELECT COUNT(*) as count FROM drivers`);
+    const [[activeDriversCount]] = await db.execute(
+      `SELECT COUNT(*) as count FROM drivers WHERE status = 'active' AND (expires_at IS NULL OR expires_at > NOW())`
+    );
+    const [[ratingsCount]] = await db.execute(`SELECT COUNT(*) as count FROM user_ratings`);
+
+    res.json({
+      users: usersCount.count,
+      posts: {
+        total: postsCount.count,
+        active: activePostsCount.count,
+      },
+      drivers: {
+        total: driversCount.count,
+        active: activeDriversCount.count,
+      },
+      ratings: ratingsCount.count,
+    });
+  } catch (error) {
+    console.error("Error fetching stats:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Start API server function
+function startApiServer() {
+  return new Promise((resolve) => {
+    const server = app.listen(API_PORT, () => {
+      console.log(`🚀 API Server running on http://localhost:${API_PORT}`);
+      resolve(server);
+    });
+  });
+}
+
+module.exports = { startApiServer };

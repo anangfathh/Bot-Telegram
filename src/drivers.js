@@ -28,10 +28,7 @@ async function sendDriverActivationMessage(bot, userId, driver, silentNotify) {
     return;
   }
 
-  const lines = [
-    "Halo, status Anda telah diperbarui sebagai driver aktif.",
-    `Masa berlaku keanggotaan sampai: ${driver.expiresAt ? driver.expiresAt.toLocaleString("id-ID") : "Tidak ditentukan"}.`,
-  ];
+  const lines = ["Halo, status Anda telah diperbarui sebagai driver aktif.", `Masa berlaku keanggotaan sampai: ${driver.expiresAt ? driver.expiresAt.toLocaleString("id-ID") : "Tidak ditentukan"}.`];
 
   if (CONFIG.DRIVER_GROUP_INVITE_LINK) {
     lines.push("Silakan bergabung ke Group Driver melalui tombol di bawah ini.");
@@ -116,9 +113,7 @@ async function upsertDriverRecord(userId, username, fullName, expiresAt, lastPay
 async function registerDriver(bot, userId, options = {}) {
   const now = new Date();
   const durationDays = Number(options.durationDays || CONFIG.DRIVER_DEFAULT_ACTIVE_DAYS || 30);
-  const expiresAt = options.expiresAt
-    ? new Date(options.expiresAt)
-    : computeExpiry(now, Number.isNaN(durationDays) || durationDays <= 0 ? 30 : durationDays);
+  const expiresAt = options.expiresAt ? new Date(options.expiresAt) : computeExpiry(now, Number.isNaN(durationDays) || durationDays <= 0 ? 30 : durationDays);
   const lastPaymentAt = options.lastPaymentAt ? new Date(options.lastPaymentAt) : now;
   const username = normalizeUsername(options.username);
   const fullName = options.fullName || null;
@@ -145,9 +140,7 @@ async function renewDriver(bot, userId, options = {}) {
   const now = new Date();
   const durationDays = Number(options.durationDays || CONFIG.DRIVER_DEFAULT_ACTIVE_DAYS || 30);
   const baseDate = driver.expiresAt && driver.expiresAt.getTime() > now.getTime() ? driver.expiresAt : now;
-  const expiresAt = options.expiresAt
-    ? new Date(options.expiresAt)
-    : computeExpiry(baseDate, Number.isNaN(durationDays) || durationDays <= 0 ? 30 : durationDays);
+  const expiresAt = options.expiresAt ? new Date(options.expiresAt) : computeExpiry(baseDate, Number.isNaN(durationDays) || durationDays <= 0 ? 30 : durationDays);
   const lastPaymentAt = options.lastPaymentAt ? new Date(options.lastPaymentAt) : now;
   const db = getPool();
 
@@ -184,10 +177,7 @@ async function removeDriver(bot, userId, options = {}) {
   }
 
   if (!options.silentNotify && driver) {
-    const reason =
-      options.reason === "expired"
-        ? "Masa berlaku driver Anda telah habis. Silakan hubungi admin untuk memperpanjang."
-        : "Status driver Anda telah dinonaktifkan oleh admin.";
+    const reason = options.reason === "expired" ? "Masa berlaku driver Anda telah habis. Silakan hubungi admin untuk memperpanjang." : "Status driver Anda telah dinonaktifkan oleh admin.";
 
     try {
       await bot.sendMessage(userId, reason);
@@ -277,6 +267,19 @@ async function searchDriversByQuery(query) {
   }));
 }
 
+/**
+ * Get all drivers from database
+ */
+async function getAllDrivers() {
+  const db = require("./database").getPool();
+  const [rows] = await db.execute(
+    `SELECT user_id, username, full_name, status, joined_at, expires_at, last_payment_at
+     FROM drivers
+     ORDER BY joined_at DESC`
+  );
+  return rows;
+}
+
 module.exports = {
   fetchDriver,
   isDriverActive,
@@ -286,4 +289,5 @@ module.exports = {
   removeDriver,
   purgeExpiredDrivers,
   searchDriversByQuery,
+  getAllDrivers,
 };

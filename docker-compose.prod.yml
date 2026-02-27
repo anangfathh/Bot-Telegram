@@ -1,0 +1,80 @@
+# Production Docker Compose Configuration
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+version: "3.8"
+
+services:
+  mysql:
+    # Production MySQL configuration
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --max_connections=200
+      - --innodb_buffer_pool_size=512M
+      - --innodb_log_file_size=128M
+      - --slow_query_log=1
+      - --slow_query_log_file=/var/log/mysql/mysql-slow.log
+      - --long_query_time=2
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_password
+      MYSQL_DATABASE: ${DB_NAME}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - mysql_logs:/var/log/mysql
+    secrets:
+      - db_password
+    # Don't expose MySQL port in production
+    ports: []
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  bot:
+    # Production bot configuration
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${DOCKER_IMAGE_PREFIX:-anangfathh/bot-telegram}:${IMAGE_TAG:-latest}
+    environment:
+      # Use Docker secrets for sensitive data
+      TELEGRAM_BOT_TOKEN_FILE: /run/secrets/telegram_bot_token
+      DB_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - telegram_bot_token
+      - db_password
+    volumes:
+      # Use named volume for logs in production
+      - bot_logs:/app/logs:rw
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - 'com.datadoghq.ad.logs=[{"source":"nodejs","service":"telegram-bot"}]'
+
+  frontend:
+    # Production frontend configuration
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${DOCKER_IMAGE_PREFIX:-anangfathh/bot-telegram-frontend}:${IMAGE_TAG:-latest}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - 'com.datadoghq.ad.logs=[{"source":"nginx","service":"telegram-bot-frontend"}]'
+
+volumes:
+  mysql_logs:
+    driver: local
+  bot_logs:
+    driver: local
+
+# Docker secrets for production
+# Create secrets using: echo "secret_value" | docker secret create secret_name -
+secrets:
+  db_password:
+    external: true
+  telegram_bot_token:
+    external: true

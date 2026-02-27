@@ -109,29 +109,43 @@ async function initDatabase() {
 }
 
 async function ensureUserPostsSchema() {
-  const statements = [
-    `ALTER TABLE user_posts ADD COLUMN IF NOT EXISTS is_closed TINYINT(1) NOT NULL DEFAULT 0`,
-    `ALTER TABLE user_posts ADD COLUMN IF NOT EXISTS closed_at DATETIME NULL`,
-    `ALTER TABLE user_posts ADD COLUMN IF NOT EXISTS expires_at DATETIME NULL`,
-    `ALTER TABLE user_posts ADD COLUMN IF NOT EXISTS last_edited_at DATETIME NULL`,
-    `ALTER TABLE user_posts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`,
-    `ALTER TABLE user_posts ADD INDEX IF NOT EXISTS idx_user_posts_expires (is_closed, expires_at)`,
+  // MySQL 8.0 doesn't support ADD COLUMN IF NOT EXISTS
+  // Use standard ALTER TABLE and catch duplicate column errors
+  const columnStatements = [
+    `ALTER TABLE user_posts ADD COLUMN is_closed TINYINT(1) NOT NULL DEFAULT 0`,
+    `ALTER TABLE user_posts ADD COLUMN closed_at DATETIME NULL`,
+    `ALTER TABLE user_posts ADD COLUMN expires_at DATETIME NULL`,
+    `ALTER TABLE user_posts ADD COLUMN last_edited_at DATETIME NULL`,
+    `ALTER TABLE user_posts ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`,
   ];
 
-  for (const statement of statements) {
+  const indexStatements = [
+    `CREATE INDEX idx_user_posts_expires ON user_posts (is_closed, expires_at)`,
+  ];
+
+  for (const statement of columnStatements) {
     try {
       await pool.execute(statement);
     } catch (error) {
-      if (
-        !["ER_DUP_FIELDNAME", "ER_CANT_DROP_FIELD_OR_KEY", "ER_DUP_KEYNAME", "ER_CANT_CREATE_TABLE"].includes(
-          error.code
-        )
-      ) {
+      // ER_DUP_FIELDNAME (1060) - column already exists, ignore
+      if (error.code !== "ER_DUP_FIELDNAME" && error.errno !== 1060) {
+        throw error;
+      }
+    }
+  }
+
+  for (const statement of indexStatements) {
+    try {
+      await pool.execute(statement);
+    } catch (error) {
+      // ER_DUP_KEYNAME (1061) - index already exists, ignore
+      if (error.code !== "ER_DUP_KEYNAME" && error.errno !== 1061) {
         throw error;
       }
     }
   }
 }
+
 
 async function upsertUserProfile({ userId, username, firstName, lastName, fullName }) {
   const db = getPool();
@@ -290,7 +304,7 @@ async function getUserPosts(userId, limit = 5) {
     LIMIT ?
   `;
 
-  const [rows] = await db.execute(query, [userId, limit]);
+  const [rows] = await db.query(query, [userId, limit]);
   return rows.map((row) => ({
     id: Number(row.id),
     category: row.category,

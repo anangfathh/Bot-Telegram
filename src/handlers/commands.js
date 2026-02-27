@@ -10,7 +10,7 @@ const { upsertUserProfile } = require("../database");
 async function setBotCommands(bot) {
   const commands = [
     { command: "start", description: "Start the bot and start to make a post" },
-    { command: "mager", description: "Post #anjem #jastip #openanjem #openjastip" },
+    { command: "go", description: "Post #anjem #jastip #openanjem #openjastip" },
     { command: "help", description: "Show help and tutorial" },
     { command: "driver", description: "Menu pendaftaran dan status driver" },
   ];
@@ -80,7 +80,7 @@ function registerCommandHandlers(bot) {
     });
   });
 
-  bot.onText(/\/mager/, async (msg) => {
+  bot.onText(/\/go/, async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
 
@@ -91,7 +91,7 @@ function registerCommandHandlers(bot) {
       return;
     }
 
-    await bot.sendMessage(chatId, "🚦 Select mager", {
+    await bot.sendMessage(chatId, "🚦 Select Option", {
       reply_markup: buildMagerMenuKeyboard(false),
     });
   });

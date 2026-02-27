@@ -1,0 +1,63 @@
+# Docker ignore file - Frontend
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+
+# Build output (will be created during build)
+dist/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+
+# CI/CD
+.github/
+
+# Docker (nginx.conf is needed, don't exclude)
+Dockerfile*
+.dockerignore
+
+# Testing
+test/
+tests/
+__tests__/
+*.test.js
+*.spec.js
+coverage/
+
+# Development configs (needed for build)
+# Note: These are kept for build stage
+# vite.config.js
+# postcss.config.cjs
+# tailwind.config.cjs
+
+# Misc
+.cache/
+.tmp/

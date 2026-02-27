@@ -2,27 +2,24 @@ const { CONFIG, CALLBACK_DATA } = require("./config");
 
 function buildMainMenuKeyboard() {
   return {
-    inline_keyboard: [
-      [{ text: "Lalala Mager", callback_data: CALLBACK_DATA.MENU_MAGER }],
-      [{ text: "Daftar Driver", callback_data: CALLBACK_DATA.DRIVER_MENU }],
-    ],
+    inline_keyboard: [[{ text: "Go Now", callback_data: CALLBACK_DATA.MENU_MAGER }], [{ text: "Daftar Driver", callback_data: CALLBACK_DATA.DRIVER_MENU }]],
   };
 }
 
 function buildMagerMenuKeyboard(includeMainMenu = false) {
   const buttons = [
     [
-      { text: "📬 Post Mager", callback_data: CALLBACK_DATA.POST_MAGER },
-      { text: "🦥 My Magers", callback_data: CALLBACK_DATA.MY_MAGERS },
+      { text: "📬 Post GO", callback_data: CALLBACK_DATA.POST_MAGER },
+      { text: "⏱️ History", callback_data: CALLBACK_DATA.MY_MAGERS },
     ],
     [
-      { text: "⛔ Close Mager", callback_data: CALLBACK_DATA.CLOSE_MAGER },
+      { text: "⛔ Close GO", callback_data: CALLBACK_DATA.CLOSE_MAGER },
       { text: "✏️ Edit Post", callback_data: CALLBACK_DATA.EDIT_POST },
     ],
     [
-      { text: "🔍 Check Price", callback_data: CALLBACK_DATA.CHECK_PRICE },
+      { text: "🔍 Tarif Check", callback_data: CALLBACK_DATA.CHECK_PRICE },
       { text: "⭐ Rating", callback_data: CALLBACK_DATA.RATING },
-      { text: "✅ Check Driver", callback_data: CALLBACK_DATA.CHECK_DRIVER },
+      { text: "✅ Driver Status", callback_data: CALLBACK_DATA.CHECK_DRIVER },
     ],
   ];
 
@@ -47,17 +44,14 @@ function buildCategoryKeyboard() {
         { text: "#OPENJASTIP 🚚", callback_data: CALLBACK_DATA.CATEGORY_OPENJASTIP },
       ],
       [{ text: "📜 Read Rules", url: "https://t.me/+AcwluKqZkCtiYTc1" }],
-      [{ text: '🔙 Back', callback_data: CALLBACK_DATA.BACK_TO_MAGER }],
+      [{ text: "🔙 Back", callback_data: CALLBACK_DATA.BACK_TO_MAGER }],
     ],
   };
 }
 
 function buildJoinChannelKeyboard() {
   return {
-    inline_keyboard: [
-      [{ text: "🤝 Join Channel", url: `https://t.me/${CONFIG.CHANNEL_USERNAME.replace("@", "")}` }],
-      [{ text: "✅ Saya Sudah Join", callback_data: CALLBACK_DATA.CHECK_MEMBERSHIP }],
-    ],
+    inline_keyboard: [[{ text: "🤝 Join Channel", url: `https://t.me/${CONFIG.CHANNEL_USERNAME.replace("@", "")}` }], [{ text: "✅ Saya Sudah Join", callback_data: CALLBACK_DATA.CHECK_MEMBERSHIP }]],
   };
 }
 
