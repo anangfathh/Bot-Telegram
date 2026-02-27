@@ -1,113 +1,133 @@
 <template>
-  <div class="space-y-6">
-    <div>
-      <h1 class="text-3xl font-bold tracking-tight">Users</h1>
-      <p class="text-muted-foreground">Kelola data pengguna bot</p>
+  <div class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
+      <div>
+        <h1 class="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">Users</h1>
+        <p class="text-muted-foreground mt-1">Kelola data pengguna bot</p>
+      </div>
     </div>
 
     <!-- Toolbar -->
-    <div class="flex items-center gap-4">
-      <Input
-        v-model="search"
-        type="text"
-        placeholder="Cari username atau nama..."
-        class="max-w-sm"
-        @input="debouncedSearch"
-      />
+    <div class="flex items-center gap-4 bg-card p-4 rounded-xl shadow-sm border">
+      <div class="relative w-full max-w-sm">
+        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input v-model="search" type="text" placeholder="Cari username atau nama..." class="pl-9 bg-background border-muted-foreground/20 focus-visible:ring-primary/50" @input="debouncedSearch" />
+      </div>
     </div>
 
     <!-- Loading State -->
-    <div v-if="loading" class="flex items-center justify-center py-12">
-      <Loader2 class="h-8 w-8 animate-spin text-primary" />
+    <div v-if="loading" class="flex flex-col items-center justify-center py-20 space-y-4">
+      <Loader2 class="h-10 w-10 animate-spin text-primary" />
+      <p class="text-muted-foreground animate-pulse">Memuat data users...</p>
     </div>
 
     <!-- Error State -->
-    <Card v-else-if="error" class="border-destructive">
-      <CardContent class="pt-6 text-destructive">{{ error }}</CardContent>
+    <Card v-else-if="error" class="border-destructive/50 bg-destructive/5 shadow-sm">
+      <CardContent class="pt-6 flex items-center text-destructive">
+        <AlertCircle class="h-5 w-5 mr-2" />
+        {{ error }}
+      </CardContent>
     </Card>
 
     <!-- Table -->
-    <Card v-else>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>User ID</TableHead>
-            <TableHead>Username</TableHead>
-            <TableHead>Nama Lengkap</TableHead>
-            <TableHead>Last Seen</TableHead>
-            <TableHead>Joined</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow v-for="user in users" :key="user.user_id">
-            <TableCell class="font-mono">{{ user.user_id }}</TableCell>
-            <TableCell>{{ user.username || '-' }}</TableCell>
-            <TableCell>{{ user.full_name || user.first_name || '-' }}</TableCell>
-            <TableCell>{{ formatDate(user.last_seen_at) }}</TableCell>
-            <TableCell>{{ formatDate(user.created_at) }}</TableCell>
-          </TableRow>
-          <TableRow v-if="users.length === 0">
-            <TableCell colspan="5" class="text-center py-8 text-muted-foreground">
-              Belum ada data user
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
+    <Card v-else class="shadow-sm overflow-hidden border-muted-foreground/20">
+      <div class="overflow-x-auto">
+        <Table>
+          <TableHeader class="bg-muted/50">
+            <TableRow class="hover:bg-transparent">
+              <TableHead class="font-semibold">User ID</TableHead>
+              <TableHead class="font-semibold">Username</TableHead>
+              <TableHead class="font-semibold">Nama Lengkap</TableHead>
+              <TableHead class="font-semibold">Last Seen</TableHead>
+              <TableHead class="font-semibold">Joined</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="user in users" :key="user.user_id" class="hover:bg-muted/30 transition-colors">
+              <TableCell class="font-mono text-xs text-muted-foreground">{{ user.user_id }}</TableCell>
+              <TableCell>
+                <div class="flex items-center gap-2">
+                  <div class="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
+                    {{ user.username ? user.username.charAt(0).toUpperCase() : "?" }}
+                  </div>
+                  <span class="font-medium">{{ user.username ? "@" + user.username : "-" }}</span>
+                </div>
+              </TableCell>
+              <TableCell>{{ user.full_name || user.first_name || "-" }}</TableCell>
+              <TableCell>
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
+                  {{ formatDate(user.last_seen_at) }}
+                </span>
+              </TableCell>
+              <TableCell class="text-muted-foreground text-sm">{{ formatDate(user.created_at) }}</TableCell>
+            </TableRow>
+            <TableRow v-if="users.length === 0">
+              <TableCell colspan="5" class="text-center py-12 text-muted-foreground">
+                <div class="flex flex-col items-center justify-center">
+                  <UsersIcon class="h-12 w-12 text-muted-foreground/30 mb-3" />
+                  <p>Belum ada data user yang ditemukan</p>
+                </div>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
     </Card>
 
     <!-- Pagination -->
-    <div v-if="pagination.totalPages > 1" class="flex items-center justify-center gap-2">
-      <Button variant="outline" size="sm" :disabled="pagination.page === 1" @click="goToPage(pagination.page - 1)">
-        <ChevronLeft class="h-4 w-4" />
-      </Button>
-      <span class="text-sm text-muted-foreground">
-        Halaman {{ pagination.page }} dari {{ pagination.totalPages }}
-      </span>
-      <Button variant="outline" size="sm" :disabled="pagination.page === pagination.totalPages" @click="goToPage(pagination.page + 1)">
-        <ChevronRight class="h-4 w-4" />
-      </Button>
+    <div v-if="pagination.totalPages > 1" class="flex items-center justify-between bg-card p-4 rounded-xl shadow-sm border">
+      <p class="text-sm text-muted-foreground hidden sm:block">
+        Menampilkan halaman <span class="font-medium text-foreground">{{ pagination.page }}</span> dari <span class="font-medium text-foreground">{{ pagination.totalPages }}</span>
+      </p>
+      <div class="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-end">
+        <Button variant="outline" size="sm" :disabled="pagination.page === 1" @click="goToPage(pagination.page - 1)" class="hover:bg-primary/10 hover:text-primary"> <ChevronLeft class="h-4 w-4 mr-1" /> Prev </Button>
+        <div class="flex items-center gap-1 px-2 sm:hidden">
+          <span class="text-sm font-medium">{{ pagination.page }} / {{ pagination.totalPages }}</span>
+        </div>
+        <Button variant="outline" size="sm" :disabled="pagination.page === pagination.totalPages" @click="goToPage(pagination.page + 1)" class="hover:bg-primary/10 hover:text-primary"> Next <ChevronRight class="h-4 w-4 ml-1" /> </Button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { Card, CardContent, Input, Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui'
-import { Loader2, ChevronLeft, ChevronRight } from 'lucide-vue-next'
-import { getUsers } from '@/api'
+import { ref, onMounted } from "vue";
+import { Card, CardContent, Input, Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui";
+import { Loader2, ChevronLeft, ChevronRight, Search, AlertCircle, Users as UsersIcon } from "lucide-vue-next";
+import { getUsers } from "@/api";
 
-const users = ref([])
-const loading = ref(true)
-const error = ref(null)
-const search = ref('')
-const pagination = ref({ page: 1, totalPages: 1 })
+const users = ref([]);
+const loading = ref(true);
+const error = ref(null);
+const search = ref("");
+const pagination = ref({ page: 1, totalPages: 1 });
 
-let debounceTimer = null
+let debounceTimer = null;
 
 const fetchUsers = async (page = 1) => {
-  loading.value = true
+  loading.value = true;
   try {
-    const response = await getUsers({ page, limit: 20, search: search.value })
-    users.value = response.data.data
-    pagination.value = response.data.pagination
+    const response = await getUsers({ page, limit: 20, search: search.value });
+    users.value = response.data.data;
+    pagination.value = response.data.pagination;
   } catch (err) {
-    error.value = 'Gagal memuat users: ' + err.message
+    error.value = "Gagal memuat users: " + err.message;
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const debouncedSearch = () => {
-  clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => fetchUsers(1), 300)
-}
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => fetchUsers(1), 300);
+};
 
-const goToPage = (page) => fetchUsers(page)
+const goToPage = (page) => fetchUsers(page);
 
 const formatDate = (date) => {
-  if (!date) return '-'
-  return new Date(date).toLocaleString('id-ID')
-}
+  if (!date) return "-";
+  return new Date(date).toLocaleString("id-ID");
+};
 
-onMounted(() => fetchUsers())
+onMounted(() => fetchUsers());
 </script>

@@ -3,56 +3,32 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  BarElement,
-} from 'chart.js'
-import { Bar } from 'vue-chartjs'
+import { computed } from "vue";
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, BarElement } from "chart.js";
+import { Bar } from "vue-chartjs";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  BarElement
-)
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, BarElement);
 
 const props = defineProps({
   stats: {
     type: Object,
     default: () => ({}),
   },
-})
+});
 
 const data = computed(() => ({
-  labels: ['Users', 'Posts', 'Drivers', 'Ratings'],
+  labels: ["Users", "Posts", "Drivers", "Ratings"],
   datasets: [
     {
-      label: 'Total',
-      backgroundColor: '#3b82f6', // primary blue
-      borderRadius: 4,
-      data: [
-        props.stats.users || 0,
-        props.stats.posts?.total || 0,
-        props.stats.drivers?.total || 0,
-        props.stats.ratings || 0,
-      ],
+      label: "Total",
+      backgroundColor: "#8b5cf6", // primary violet
+      borderRadius: 6,
+      data: [props.stats.users || 0, props.stats.posts?.total || 0, props.stats.drivers?.total || 0, props.stats.ratings || 0],
     },
     {
-      label: 'Active',
-      backgroundColor: '#22c55e', // success green
-      borderRadius: 4,
+      label: "Active",
+      backgroundColor: "#10b981", // success emerald
+      borderRadius: 6,
       data: [
         props.stats.users || 0, // Users are mostly active
         props.stats.posts?.active || 0,
@@ -61,42 +37,58 @@ const data = computed(() => ({
       ],
     },
   ],
-}))
+}));
 
 const options = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
     legend: {
-      position: 'top',
-      align: 'end',
+      position: "top",
+      align: "end",
       labels: {
-        color: '#94a3b8', // muted foreground
+        color: "#64748b", // muted foreground
         usePointStyle: true,
+        boxWidth: 8,
+        font: {
+          family: "'Inter', sans-serif",
+          weight: "500",
+        },
       },
     },
     tooltip: {
-      mode: 'index',
+      mode: "index",
       intersect: false,
+      backgroundColor: "rgba(15, 23, 42, 0.9)",
+      titleFont: { family: "'Inter', sans-serif", size: 13 },
+      bodyFont: { family: "'Inter', sans-serif", size: 12 },
+      padding: 10,
+      cornerRadius: 8,
     },
   },
   scales: {
     y: {
       grid: {
-        color: '#1e293b', // darker grid lines
+        color: "rgba(148, 163, 184, 0.1)", // subtle grid lines
+        drawBorder: false,
       },
       ticks: {
-        color: '#94a3b8',
+        color: "#64748b",
+        font: { family: "'Inter', sans-serif" },
       },
+      border: { display: false },
     },
     x: {
       grid: {
         display: false,
+        drawBorder: false,
       },
       ticks: {
-        color: '#94a3b8',
+        color: "#64748b",
+        font: { family: "'Inter', sans-serif", weight: "500" },
       },
+      border: { display: false },
     },
   },
-}
+};
 </script>
