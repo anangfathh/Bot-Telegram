@@ -148,9 +148,9 @@ services:
       - NET_BIND_SERVICE
     read_only: true
     tmpfs:
-      - /var/cache/nginx:noexec,nosuid,size=50M
-      - /var/run:noexec,nosuid,size=10M
-      - /tmp:noexec,nosuid,size=10M
+      - /var/cache/nginx:noexec,nosuid,nodev,size=50M,uid=101,gid=101,mode=0755
+      - /var/run:noexec,nosuid,nodev,size=10M,uid=101,gid=101,mode=0755
+      - /tmp:noexec,nosuid,nodev,size=10M,uid=101,gid=101,mode=1777
 
 networks:
   bot-network:
