@@ -37,66 +37,109 @@
       </CardContent>
     </Card>
 
-    <!-- Table -->
-    <Card v-else class="shadow-sm overflow-hidden border-muted-foreground/20">
-      <div class="overflow-x-auto">
-        <Table>
-          <TableHeader class="bg-muted/50">
-            <TableRow class="hover:bg-transparent">
-              <TableHead class="font-semibold">User ID</TableHead>
-              <TableHead class="font-semibold">Username</TableHead>
-              <TableHead class="font-semibold">Nama</TableHead>
-              <TableHead class="font-semibold">Status</TableHead>
-              <TableHead class="font-semibold">Joined</TableHead>
-              <TableHead class="font-semibold">Expires</TableHead>
-              <TableHead class="font-semibold text-right">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow v-for="driver in drivers" :key="driver.user_id" class="hover:bg-muted/30 transition-colors">
-              <TableCell class="font-mono text-xs text-muted-foreground">{{ driver.user_id }}</TableCell>
-              <TableCell>
-                <div class="flex items-center gap-2">
-                  <div class="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
-                    {{ driver.username ? driver.username.charAt(0).toUpperCase() : "?" }}
-                  </div>
-                  <span class="font-medium">{{ driver.username ? "@" + driver.username : "-" }}</span>
-                </div>
-              </TableCell>
-              <TableCell>{{ driver.full_name || "-" }}</TableCell>
-              <TableCell>
-                <Badge :variant="driver.status === 'active' ? 'success' : 'destructive'" class="shadow-sm">
-                  {{ driver.status }}
-                </Badge>
-              </TableCell>
-              <TableCell class="text-muted-foreground text-sm">{{ formatDate(driver.joined_at) }}</TableCell>
-              <TableCell :class="isExpired(driver.expires_at) ? 'text-destructive font-medium' : 'text-muted-foreground text-sm'">
-                {{ formatDate(driver.expires_at) }}
-              </TableCell>
-              <TableCell class="text-right">
-                <div class="flex justify-end gap-2">
-                  <Button variant="outline" size="sm" @click="openRenewModal(driver)" class="hover:bg-primary/10 hover:text-primary">
-                    <RefreshCw class="mr-1 h-3 w-3" />
-                    Renew
-                  </Button>
-                  <Button variant="destructive" size="sm" @click="confirmDelete(driver)" class="shadow-sm">
-                    <Trash2 class="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-            <TableRow v-if="drivers.length === 0">
-              <TableCell colspan="7" class="text-center py-12 text-muted-foreground">
-                <div class="flex flex-col items-center justify-center">
-                  <Car class="h-12 w-12 text-muted-foreground/30 mb-3" />
-                  <p>Belum ada data driver yang ditemukan</p>
-                </div>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+    <!-- Data -->
+    <template v-else>
+      <div class="grid gap-3 md:hidden">
+        <Card v-for="driver in drivers" :key="driver.user_id" class="p-4 shadow-sm border-muted-foreground/20">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-semibold truncate">{{ driver.full_name || driver.username || "Tanpa Nama" }}</p>
+              <p class="text-sm text-muted-foreground truncate">{{ driver.username ? "@" + driver.username : "Tanpa username" }}</p>
+            </div>
+            <Badge :variant="driver.status === 'active' ? 'success' : 'destructive'" class="shadow-sm">
+              {{ driver.status }}
+            </Badge>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+            <div class="rounded-md bg-muted/40 p-2">
+              <p class="text-muted-foreground">Joined</p>
+              <p class="font-medium mt-0.5">{{ formatDate(driver.joined_at) }}</p>
+            </div>
+            <div class="rounded-md bg-muted/40 p-2">
+              <p class="text-muted-foreground">Expires</p>
+              <p :class="isExpired(driver.expires_at) ? 'font-medium text-destructive' : 'font-medium mt-0.5'">{{ formatDate(driver.expires_at) }}</p>
+            </div>
+          </div>
+          <p class="mt-2 text-[11px] text-muted-foreground font-mono">ID: {{ driver.user_id }}</p>
+          <div class="mt-3 flex gap-2">
+            <Button variant="outline" size="sm" @click="openRenewModal(driver)" class="flex-1 hover:bg-primary/10 hover:text-primary">
+              <RefreshCw class="mr-1 h-3 w-3" />
+              Renew
+            </Button>
+            <Button variant="destructive" size="sm" @click="confirmDelete(driver)">
+              <Trash2 class="h-4 w-4" />
+            </Button>
+          </div>
+        </Card>
+
+        <Card v-if="drivers.length === 0" class="p-8 text-center text-muted-foreground border-muted-foreground/20">
+          <div class="flex flex-col items-center justify-center">
+            <Car class="h-12 w-12 text-muted-foreground/30 mb-3" />
+            <p>Belum ada data driver yang ditemukan</p>
+          </div>
+        </Card>
       </div>
-    </Card>
+
+      <Card class="hidden md:block shadow-sm overflow-hidden border-muted-foreground/20">
+        <div class="overflow-x-auto">
+          <Table>
+            <TableHeader class="bg-muted/50">
+              <TableRow class="hover:bg-transparent">
+                <TableHead class="font-semibold">User ID</TableHead>
+                <TableHead class="font-semibold">Username</TableHead>
+                <TableHead class="font-semibold">Nama</TableHead>
+                <TableHead class="font-semibold">Status</TableHead>
+                <TableHead class="font-semibold">Joined</TableHead>
+                <TableHead class="font-semibold">Expires</TableHead>
+                <TableHead class="font-semibold text-right">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="driver in drivers" :key="driver.user_id" class="hover:bg-muted/30 transition-colors">
+                <TableCell class="font-mono text-xs text-muted-foreground">{{ driver.user_id }}</TableCell>
+                <TableCell>
+                  <div class="flex items-center gap-2">
+                    <div class="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
+                      {{ driver.username ? driver.username.charAt(0).toUpperCase() : "?" }}
+                    </div>
+                    <span class="font-medium">{{ driver.username ? "@" + driver.username : "-" }}</span>
+                  </div>
+                </TableCell>
+                <TableCell>{{ driver.full_name || "-" }}</TableCell>
+                <TableCell>
+                  <Badge :variant="driver.status === 'active' ? 'success' : 'destructive'" class="shadow-sm">
+                    {{ driver.status }}
+                  </Badge>
+                </TableCell>
+                <TableCell class="text-muted-foreground text-sm">{{ formatDate(driver.joined_at) }}</TableCell>
+                <TableCell :class="isExpired(driver.expires_at) ? 'text-destructive font-medium' : 'text-muted-foreground text-sm'">
+                  {{ formatDate(driver.expires_at) }}
+                </TableCell>
+                <TableCell class="text-right">
+                  <div class="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" @click="openRenewModal(driver)" class="hover:bg-primary/10 hover:text-primary">
+                      <RefreshCw class="mr-1 h-3 w-3" />
+                      Renew
+                    </Button>
+                    <Button variant="destructive" size="sm" @click="confirmDelete(driver)" class="shadow-sm">
+                      <Trash2 class="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+              <TableRow v-if="drivers.length === 0">
+                <TableCell colspan="7" class="text-center py-12 text-muted-foreground">
+                  <div class="flex flex-col items-center justify-center">
+                    <Car class="h-12 w-12 text-muted-foreground/30 mb-3" />
+                    <p>Belum ada data driver yang ditemukan</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+    </template>
 
     <!-- Pagination -->
     <div v-if="pagination.totalPages > 1" class="flex items-center justify-between bg-card p-4 rounded-xl shadow-sm border">

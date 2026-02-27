@@ -29,50 +29,86 @@
       </CardContent>
     </Card>
 
-    <!-- Table -->
-    <Card v-else class="shadow-sm overflow-hidden border-muted-foreground/20">
-      <div class="overflow-x-auto">
-        <Table>
-          <TableHeader class="bg-muted/50">
-            <TableRow class="hover:bg-transparent">
-              <TableHead class="font-semibold">User ID</TableHead>
-              <TableHead class="font-semibold">Username</TableHead>
-              <TableHead class="font-semibold">Nama Lengkap</TableHead>
-              <TableHead class="font-semibold">Last Seen</TableHead>
-              <TableHead class="font-semibold">Joined</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow v-for="user in users" :key="user.user_id" class="hover:bg-muted/30 transition-colors">
-              <TableCell class="font-mono text-xs text-muted-foreground">{{ user.user_id }}</TableCell>
-              <TableCell>
-                <div class="flex items-center gap-2">
-                  <div class="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
-                    {{ user.username ? user.username.charAt(0).toUpperCase() : "?" }}
-                  </div>
-                  <span class="font-medium">{{ user.username ? "@" + user.username : "-" }}</span>
-                </div>
-              </TableCell>
-              <TableCell>{{ user.full_name || user.first_name || "-" }}</TableCell>
-              <TableCell>
-                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
-                  {{ formatDate(user.last_seen_at) }}
-                </span>
-              </TableCell>
-              <TableCell class="text-muted-foreground text-sm">{{ formatDate(user.created_at) }}</TableCell>
-            </TableRow>
-            <TableRow v-if="users.length === 0">
-              <TableCell colspan="5" class="text-center py-12 text-muted-foreground">
-                <div class="flex flex-col items-center justify-center">
-                  <UsersIcon class="h-12 w-12 text-muted-foreground/30 mb-3" />
-                  <p>Belum ada data user yang ditemukan</p>
-                </div>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+    <!-- Data -->
+    <template v-else>
+      <div class="grid gap-3 md:hidden">
+        <Card v-for="user in users" :key="user.user_id" class="p-4 shadow-sm border-muted-foreground/20">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold shrink-0">
+                {{ user.username ? user.username.charAt(0).toUpperCase() : "?" }}
+              </div>
+              <div class="min-w-0">
+                <p class="font-semibold truncate">{{ user.full_name || user.first_name || "Tanpa Nama" }}</p>
+                <p class="text-sm text-muted-foreground truncate">{{ user.username ? "@" + user.username : "Tanpa username" }}</p>
+              </div>
+            </div>
+            <span class="text-[11px] text-muted-foreground font-mono">#{{ user.user_id }}</span>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+            <div class="rounded-md bg-muted/40 p-2">
+              <p class="text-muted-foreground">Last Seen</p>
+              <p class="font-medium mt-0.5">{{ formatDate(user.last_seen_at) }}</p>
+            </div>
+            <div class="rounded-md bg-muted/40 p-2">
+              <p class="text-muted-foreground">Joined</p>
+              <p class="font-medium mt-0.5">{{ formatDate(user.created_at) }}</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card v-if="users.length === 0" class="p-8 text-center text-muted-foreground border-muted-foreground/20">
+          <div class="flex flex-col items-center justify-center">
+            <UsersIcon class="h-12 w-12 text-muted-foreground/30 mb-3" />
+            <p>Belum ada data user yang ditemukan</p>
+          </div>
+        </Card>
       </div>
-    </Card>
+
+      <Card class="hidden md:block shadow-sm overflow-hidden border-muted-foreground/20">
+        <div class="overflow-x-auto">
+          <Table>
+            <TableHeader class="bg-muted/50">
+              <TableRow class="hover:bg-transparent">
+                <TableHead class="font-semibold">User ID</TableHead>
+                <TableHead class="font-semibold">Username</TableHead>
+                <TableHead class="font-semibold">Nama Lengkap</TableHead>
+                <TableHead class="font-semibold">Last Seen</TableHead>
+                <TableHead class="font-semibold">Joined</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="user in users" :key="user.user_id" class="hover:bg-muted/30 transition-colors">
+                <TableCell class="font-mono text-xs text-muted-foreground">{{ user.user_id }}</TableCell>
+                <TableCell>
+                  <div class="flex items-center gap-2">
+                    <div class="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
+                      {{ user.username ? user.username.charAt(0).toUpperCase() : "?" }}
+                    </div>
+                    <span class="font-medium">{{ user.username ? "@" + user.username : "-" }}</span>
+                  </div>
+                </TableCell>
+                <TableCell>{{ user.full_name || user.first_name || "-" }}</TableCell>
+                <TableCell>
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
+                    {{ formatDate(user.last_seen_at) }}
+                  </span>
+                </TableCell>
+                <TableCell class="text-muted-foreground text-sm">{{ formatDate(user.created_at) }}</TableCell>
+              </TableRow>
+              <TableRow v-if="users.length === 0">
+                <TableCell colspan="5" class="text-center py-12 text-muted-foreground">
+                  <div class="flex flex-col items-center justify-center">
+                    <UsersIcon class="h-12 w-12 text-muted-foreground/30 mb-3" />
+                    <p>Belum ada data user yang ditemukan</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+    </template>
 
     <!-- Pagination -->
     <div v-if="pagination.totalPages > 1" class="flex items-center justify-between bg-card p-4 rounded-xl shadow-sm border">

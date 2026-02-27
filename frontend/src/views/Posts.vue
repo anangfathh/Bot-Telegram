@@ -40,58 +40,97 @@
       </CardContent>
     </Card>
 
-    <!-- Table -->
-    <Card v-else class="shadow-sm overflow-hidden border-muted-foreground/20">
-      <div class="overflow-x-auto">
-        <Table>
-          <TableHeader class="bg-muted/50">
-            <TableRow class="hover:bg-transparent">
-              <TableHead class="font-semibold">ID</TableHead>
-              <TableHead class="font-semibold">User</TableHead>
-              <TableHead class="font-semibold">Kategori</TableHead>
-              <TableHead class="font-semibold max-w-[300px]">Message</TableHead>
-              <TableHead class="font-semibold">Status</TableHead>
-              <TableHead class="font-semibold">Tanggal</TableHead>
-              <TableHead class="font-semibold text-right">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow v-for="post in posts" :key="post.id" class="hover:bg-muted/30 transition-colors">
-              <TableCell class="font-mono text-xs text-muted-foreground">{{ post.id }}</TableCell>
-              <TableCell class="font-medium">{{ post.username ? "@" + post.username : post.user_full_name || post.user_id }}</TableCell>
-              <TableCell>
-                <Badge variant="secondary" class="bg-primary/10 text-primary hover:bg-primary/20 border-transparent">
-                  {{ post.category }}
-                </Badge>
-              </TableCell>
-              <TableCell class="max-w-[300px] truncate text-muted-foreground" :title="post.message">{{ post.message }}</TableCell>
-              <TableCell>
-                <Badge :variant="post.is_closed ? 'destructive' : 'success'" class="shadow-sm">
-                  {{ post.is_closed ? "Closed" : "Active" }}
-                </Badge>
-              </TableCell>
-              <TableCell class="text-muted-foreground text-sm">{{ formatDate(post.timestamp) }}</TableCell>
-              <TableCell class="text-right">
-                <div class="flex justify-end gap-2">
-                  <Button v-if="!post.is_closed" variant="outline" size="sm" @click="closePost(post)" class="hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/50"> <XCircle class="h-3 w-3 mr-1" /> Close </Button>
-                  <Button variant="destructive" size="sm" @click="confirmDelete(post)" class="shadow-sm">
-                    <Trash2 class="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-            <TableRow v-if="posts.length === 0">
-              <TableCell colspan="7" class="text-center py-12 text-muted-foreground">
-                <div class="flex flex-col items-center justify-center">
-                  <FileText class="h-12 w-12 text-muted-foreground/30 mb-3" />
-                  <p>Belum ada post yang ditemukan</p>
-                </div>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+    <!-- Data -->
+    <template v-else>
+      <div class="grid gap-3 md:hidden">
+        <Card v-for="post in posts" :key="post.id" class="p-4 shadow-sm border-muted-foreground/20">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-semibold truncate">{{ post.username ? "@" + post.username : post.user_full_name || post.user_id }}</p>
+              <p class="text-xs text-muted-foreground mt-0.5">{{ formatDate(post.timestamp) }}</p>
+            </div>
+            <Badge :variant="post.is_closed ? 'destructive' : 'success'" class="shadow-sm">
+              {{ post.is_closed ? "Closed" : "Active" }}
+            </Badge>
+          </div>
+          <div class="mt-3 flex items-center justify-between gap-2">
+            <Badge variant="secondary" class="bg-primary/10 text-primary border-transparent">
+              {{ post.category }}
+            </Badge>
+            <span class="text-[11px] text-muted-foreground font-mono">#{{ post.id }}</span>
+          </div>
+          <p class="mt-3 text-sm text-muted-foreground line-clamp-3">{{ post.message }}</p>
+          <div class="mt-3 flex gap-2">
+            <Button v-if="!post.is_closed" variant="outline" size="sm" @click="closePost(post)" class="flex-1 hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/50">
+              <XCircle class="h-3 w-3 mr-1" />
+              Close
+            </Button>
+            <Button variant="destructive" size="sm" @click="confirmDelete(post)">
+              <Trash2 class="h-4 w-4" />
+            </Button>
+          </div>
+        </Card>
+
+        <Card v-if="posts.length === 0" class="p-8 text-center text-muted-foreground border-muted-foreground/20">
+          <div class="flex flex-col items-center justify-center">
+            <FileText class="h-12 w-12 text-muted-foreground/30 mb-3" />
+            <p>Belum ada post yang ditemukan</p>
+          </div>
+        </Card>
       </div>
-    </Card>
+
+      <Card class="hidden md:block shadow-sm overflow-hidden border-muted-foreground/20">
+        <div class="overflow-x-auto">
+          <Table>
+            <TableHeader class="bg-muted/50">
+              <TableRow class="hover:bg-transparent">
+                <TableHead class="font-semibold">ID</TableHead>
+                <TableHead class="font-semibold">User</TableHead>
+                <TableHead class="font-semibold">Kategori</TableHead>
+                <TableHead class="font-semibold max-w-[300px]">Message</TableHead>
+                <TableHead class="font-semibold">Status</TableHead>
+                <TableHead class="font-semibold">Tanggal</TableHead>
+                <TableHead class="font-semibold text-right">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow v-for="post in posts" :key="post.id" class="hover:bg-muted/30 transition-colors">
+                <TableCell class="font-mono text-xs text-muted-foreground">{{ post.id }}</TableCell>
+                <TableCell class="font-medium">{{ post.username ? "@" + post.username : post.user_full_name || post.user_id }}</TableCell>
+                <TableCell>
+                  <Badge variant="secondary" class="bg-primary/10 text-primary hover:bg-primary/20 border-transparent">
+                    {{ post.category }}
+                  </Badge>
+                </TableCell>
+                <TableCell class="max-w-[300px] truncate text-muted-foreground" :title="post.message">{{ post.message }}</TableCell>
+                <TableCell>
+                  <Badge :variant="post.is_closed ? 'destructive' : 'success'" class="shadow-sm">
+                    {{ post.is_closed ? "Closed" : "Active" }}
+                  </Badge>
+                </TableCell>
+                <TableCell class="text-muted-foreground text-sm">{{ formatDate(post.timestamp) }}</TableCell>
+                <TableCell class="text-right">
+                  <div class="flex justify-end gap-2">
+                    <Button v-if="!post.is_closed" variant="outline" size="sm" @click="closePost(post)" class="hover:bg-amber-500/10 hover:text-amber-500 hover:border-amber-500/50"> <XCircle class="h-3 w-3 mr-1" /> Close </Button>
+                    <Button variant="destructive" size="sm" @click="confirmDelete(post)" class="shadow-sm">
+                      <Trash2 class="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+              <TableRow v-if="posts.length === 0">
+                <TableCell colspan="7" class="text-center py-12 text-muted-foreground">
+                  <div class="flex flex-col items-center justify-center">
+                    <FileText class="h-12 w-12 text-muted-foreground/30 mb-3" />
+                    <p>Belum ada post yang ditemukan</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+    </template>
 
     <!-- Pagination -->
     <div v-if="pagination.totalPages > 1" class="flex items-center justify-between bg-card p-4 rounded-xl shadow-sm border">
