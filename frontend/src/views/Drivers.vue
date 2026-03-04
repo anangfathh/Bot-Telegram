@@ -45,6 +45,8 @@
             <div class="min-w-0">
               <p class="font-semibold truncate">{{ driver.full_name || driver.username || "Tanpa Nama" }}</p>
               <p class="text-sm text-muted-foreground truncate">{{ driver.username ? "@" + driver.username : "Tanpa username" }}</p>
+              <p class="text-xs text-muted-foreground truncate">NIM: {{ driver.nim || "-" }}</p>
+              <p class="text-xs text-muted-foreground truncate">HP: {{ driver.phone_number || "-" }}</p>
             </div>
             <Badge :variant="driver.status === 'active' ? 'success' : 'destructive'" class="shadow-sm">
               {{ driver.status }}
@@ -87,7 +89,9 @@
               <TableRow class="hover:bg-transparent">
                 <TableHead class="font-semibold">User ID</TableHead>
                 <TableHead class="font-semibold">Username</TableHead>
+                <TableHead class="font-semibold">NIM</TableHead>
                 <TableHead class="font-semibold">Nama</TableHead>
+                <TableHead class="font-semibold">No. HP</TableHead>
                 <TableHead class="font-semibold">Status</TableHead>
                 <TableHead class="font-semibold">Joined</TableHead>
                 <TableHead class="font-semibold">Expires</TableHead>
@@ -105,7 +109,9 @@
                     <span class="font-medium">{{ driver.username ? "@" + driver.username : "-" }}</span>
                   </div>
                 </TableCell>
+                <TableCell>{{ driver.nim || "-" }}</TableCell>
                 <TableCell>{{ driver.full_name || "-" }}</TableCell>
+                <TableCell>{{ driver.phone_number || "-" }}</TableCell>
                 <TableCell>
                   <Badge :variant="driver.status === 'active' ? 'success' : 'destructive'" class="shadow-sm">
                     {{ driver.status }}
@@ -128,7 +134,7 @@
                 </TableCell>
               </TableRow>
               <TableRow v-if="drivers.length === 0">
-                <TableCell colspan="7" class="text-center py-12 text-muted-foreground">
+                <TableCell colspan="9" class="text-center py-12 text-muted-foreground">
                   <div class="flex flex-col items-center justify-center">
                     <Car class="h-12 w-12 text-muted-foreground/30 mb-3" />
                     <p>Belum ada data driver yang ditemukan</p>
@@ -171,8 +177,16 @@
             <Input v-model="newDriver.username" placeholder="@username" />
           </div>
           <div class="space-y-2">
-            <label class="text-sm font-medium">Nama Lengkap</label>
+            <label class="text-sm font-medium">NIM *</label>
+            <Input v-model="newDriver.nim" placeholder="Masukkan NIM" />
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-medium">Nama Lengkap *</label>
             <Input v-model="newDriver.full_name" placeholder="Nama lengkap" />
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-medium">Nomor HP *</label>
+            <Input v-model="newDriver.phone_number" placeholder="08xxxxxxxxxx" />
           </div>
           <div class="space-y-2">
             <label class="text-sm font-medium">Durasi (hari)</label>
@@ -242,7 +256,9 @@ const renewDays = ref(30);
 const newDriver = reactive({
   user_id: "",
   username: "",
+  nim: "",
   full_name: "",
+  phone_number: "",
   duration_days: 30,
 });
 
@@ -260,13 +276,17 @@ const fetchDrivers = async (page = 1) => {
 };
 
 const openAddModal = () => {
-  Object.assign(newDriver, { user_id: "", username: "", full_name: "", duration_days: 30 });
+  Object.assign(newDriver, { user_id: "", username: "", nim: "", full_name: "", phone_number: "", duration_days: 30 });
   showAddModal.value = true;
 };
 
 const addDriver = async () => {
   if (!newDriver.user_id) {
     alert("User ID wajib diisi!");
+    return;
+  }
+  if (!newDriver.nim || !newDriver.full_name || !newDriver.phone_number) {
+    alert("NIM, Nama Lengkap, dan Nomor HP wajib diisi!");
     return;
   }
   try {

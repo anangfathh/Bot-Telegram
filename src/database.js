@@ -89,7 +89,9 @@ async function initDatabase() {
       `CREATE TABLE IF NOT EXISTS drivers (
         user_id BIGINT PRIMARY KEY,
         username VARCHAR(64) NULL,
+        nim VARCHAR(64) NULL,
         full_name VARCHAR(255) NULL,
+        phone_number VARCHAR(32) NULL,
         status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
         joined_at DATETIME NOT NULL,
         expires_at DATETIME NULL,
@@ -99,6 +101,8 @@ async function initDatabase() {
         INDEX idx_drivers_status_expires (status, expires_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
     );
+
+    await ensureDriversSchema();
 
     console.log("MySQL database connected");
     return pool;
@@ -140,6 +144,23 @@ async function ensureUserPostsSchema() {
     } catch (error) {
       // ER_DUP_KEYNAME (1061) - index already exists, ignore
       if (error.code !== "ER_DUP_KEYNAME" && error.errno !== 1061) {
+        throw error;
+      }
+    }
+  }
+}
+
+async function ensureDriversSchema() {
+  const columnStatements = [
+    `ALTER TABLE drivers ADD COLUMN nim VARCHAR(64) NULL AFTER username`,
+    `ALTER TABLE drivers ADD COLUMN phone_number VARCHAR(32) NULL AFTER full_name`,
+  ];
+
+  for (const statement of columnStatements) {
+    try {
+      await pool.execute(statement);
+    } catch (error) {
+      if (error.code !== "ER_DUP_FIELDNAME" && error.errno !== 1060) {
         throw error;
       }
     }

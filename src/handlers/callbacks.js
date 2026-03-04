@@ -573,7 +573,19 @@ function registerCallbackHandlers(bot) {
 
     await bot.sendMessage(
       chatId,
-      ["🧑‍✈️ <b>Tambah Driver</b>", "", "Kirim user ID dan durasi (opsional) dengan format:", "<code>8375046442 30</code>", "", "• Tanpa durasi → pakai default.", "• Ketik <b>BATAL</b> untuk membatalkan."].join("\n"),
+      [
+        "🧑‍✈️ <b>Tambah Driver</b>",
+        "",
+        "Kirim data dengan format:",
+        "<code>user_id|nim|nama_lengkap|nomor_hp|durasi_hari</code>",
+        "",
+        "<b>Contoh:</b>",
+        "<code>8375046442|A11.2022.12345|Budi Santoso|081234567890|30</code>",
+        "",
+        "• Durasi opsional, jika kosong pakai default.",
+        "• Pisahkan setiap field dengan tanda <code>|</code>.",
+        "• Ketik <b>BATAL</b> untuk membatalkan.",
+      ].join("\n"),
       { parse_mode: "HTML" }
     );
   }

@@ -54,6 +54,63 @@ function registerCommandHandlers(bot) {
 
   const parseArgs = (input) => (input ? input.trim().split(/\s+/).filter(Boolean) : []);
 
+  const parseDriverAddInput = (input) => {
+    const payload = (input || "").trim();
+    if (!payload) {
+      return {
+        ok: false,
+        message: "Gunakan format: /driver_add user_id|nim|nama_lengkap|nomor_hp|durasi_hari",
+      };
+    }
+
+    const parts = payload.split("|").map((part) => part.trim());
+    if (parts.length < 4) {
+      return {
+        ok: false,
+        message: "Format tidak valid. Gunakan: user_id|nim|nama_lengkap|nomor_hp|durasi_hari",
+      };
+    }
+
+    const targetUserId = Number(parts[0]);
+    if (!parts[0] || Number.isNaN(targetUserId)) {
+      return {
+        ok: false,
+        message: "User ID tidak valid. Contoh: 8375046442",
+      };
+    }
+
+    const nim = parts[1];
+    const fullName = parts[2];
+    const phoneNumber = parts[3];
+
+    if (!nim || !fullName || !phoneNumber) {
+      return {
+        ok: false,
+        message: "NIM, nama lengkap, dan nomor HP wajib diisi.",
+      };
+    }
+
+    let durationDays;
+    if (parts[4]) {
+      durationDays = Number(parts[4]);
+      if (Number.isNaN(durationDays) || durationDays <= 0) {
+        return {
+          ok: false,
+          message: "Durasi harus angka hari yang valid. Contoh: 30",
+        };
+      }
+    }
+
+    return {
+      ok: true,
+      targetUserId,
+      nim,
+      fullName,
+      phoneNumber,
+      durationDays,
+    };
+  };
+
   bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
@@ -129,14 +186,13 @@ function registerCommandHandlers(bot) {
       return;
     }
 
-    const args = parseArgs(match[1]);
-    const targetUserId = resolveTargetUserId(msg, args[0]);
-    const durationDays = args[1] ? Number(args[1]) : undefined;
-
-    if (!targetUserId) {
-      await bot.sendMessage(chatId, "Gunakan format: /driver_add <telegram_user_id> [durasi_hari]");
+    const parsedInput = parseDriverAddInput(match[1]);
+    if (!parsedInput.ok) {
+      await bot.sendMessage(chatId, parsedInput.message);
       return;
     }
+
+    const { targetUserId, nim, fullName, phoneNumber, durationDays } = parsedInput;
 
     let chatInfo = null;
     try {
@@ -146,15 +202,14 @@ function registerCommandHandlers(bot) {
     }
 
     const username = chatInfo?.username ? `@${chatInfo.username}` : undefined;
-    const fullName = chatInfo
-      ? [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(" ").trim() || undefined
-      : undefined;
 
     try {
       const driver = await registerDriver(bot, targetUserId, {
         username,
+        nim,
         fullName,
-        durationDays: Number.isNaN(durationDays) ? undefined : durationDays,
+        phoneNumber,
+        durationDays,
       });
 
       await bot.sendMessage(
@@ -162,7 +217,9 @@ function registerCommandHandlers(bot) {
         [
           "Driver berhasil ditambahkan/diaktivasi.",
           `ID: ${targetUserId}`,
+          `NIM: ${driver.nim || nim || "-"}`,
           `Nama: ${driver.fullName || fullName || "-"}`,
+          `No. HP: ${driver.phoneNumber || phoneNumber || "-"}`,
           `Username: ${driver.username || username || "-"}`,
           `Berlaku sampai: ${formatDateTime(driver.expiresAt)}`,
         ].join("\n"),

@@ -13,7 +13,7 @@ const { registerCallbackHandlers } = require("./src/handlers/callbacks");
 const { registerMessageHandlers } = require("./src/handlers/messages");
 const { registerSystemHandlers } = require("./src/handlers/system");
 const { startPostScheduler } = require("./src/scheduler");
-const { startApiServer } = require("./src/api");
+const { startApiServer, setApiBot } = require("./src/api");
 
 let bot;
 let apiServer;
@@ -26,6 +26,7 @@ let apiServer;
     apiServer = await startApiServer();
 
     bot = createBot();
+    setApiBot(bot);
 
     console.log("🎉 Bot started!");
     console.log("Channel ID:", CONFIG.CHANNEL_ID);
@@ -78,4 +79,3 @@ async function gracefulShutdown() {
     process.exit(1);
   }
 }
-

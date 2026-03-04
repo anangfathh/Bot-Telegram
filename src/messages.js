@@ -177,9 +177,10 @@ function getDriverContactMessage(contactUsername) {
     `Silakan hubungi admin driver di: <b>${contactUsername}</b>`,
     "",
     "Sampaikan data berikut saat menghubungi admin:",
+    "• NIM",
     "• Nama lengkap",
-    "• Username Telegram",
-    "• Nomor kontak",
+    "• Nomor HP",
+    "• Username Telegram (opsional)",
     "• Bukti pembayaran (jika perpanjang)",
   ].join("\n");
 }
@@ -197,7 +198,9 @@ function getDriverStatusMessage(driver, contactUsername) {
   const lines = [
     "🚗 <b>Status Driver</b>",
     "",
+    `<b>NIM:</b> ${driver.nim || "-"}`,
     `<b>Nama:</b> ${driver.fullName || "-"}`,
+    `<b>No. HP:</b> ${driver.phoneNumber || "-"}`,
     `<b>Username:</b> ${formatUsernameDisplay(driver.username)}`,
     `<b>Status:</b> ${driver.status === "active" ? "Aktif" : "Non-aktif"}`,
   ];

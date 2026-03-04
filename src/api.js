@@ -1,13 +1,19 @@
 const express = require("express");
 const cors = require("cors");
 const { getPool } = require("./database");
+const { closePost } = require("./posts");
 
 const app = express();
 const API_PORT = process.env.API_PORT || 3001;
+let apiBot = null;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+function setApiBot(bot) {
+  apiBot = bot;
+}
 
 // ========================================
 // Users Endpoints
@@ -187,6 +193,16 @@ app.put("/api/posts/:postId", async (req, res) => {
     const { message, is_closed } = req.body;
     const postId = req.params.postId;
 
+    const closeRequested = is_closed === true || is_closed === 1 || is_closed === "1";
+    if (closeRequested) {
+      if (!apiBot) {
+        return res.status(503).json({ error: "Telegram bot is not ready yet" });
+      }
+
+      await closePost(apiBot, postId);
+      return res.json({ success: true });
+    }
+
     const updates = [];
     const params = [];
 
@@ -365,10 +381,19 @@ app.get("/api/drivers/:userId", async (req, res) => {
 app.post("/api/drivers", async (req, res) => {
   try {
     const db = getPool();
-    const { user_id, username, full_name, duration_days } = req.body;
+    const { user_id, username, nim, full_name, phone_number, duration_days } = req.body;
 
     if (!user_id) {
       return res.status(400).json({ error: "user_id is required" });
+    }
+    if (!nim) {
+      return res.status(400).json({ error: "nim is required" });
+    }
+    if (!full_name) {
+      return res.status(400).json({ error: "full_name is required" });
+    }
+    if (!phone_number) {
+      return res.status(400).json({ error: "phone_number is required" });
     }
 
     const now = new Date();
@@ -376,15 +401,17 @@ app.post("/api/drivers", async (req, res) => {
     const expiresAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
     await db.execute(
-      `INSERT INTO drivers (user_id, username, full_name, status, joined_at, expires_at, last_payment_at)
-       VALUES (?, ?, ?, 'active', ?, ?, ?)
+      `INSERT INTO drivers (user_id, username, nim, full_name, phone_number, status, joined_at, expires_at, last_payment_at)
+       VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          username = VALUES(username),
+         nim = VALUES(nim),
          full_name = VALUES(full_name),
+         phone_number = VALUES(phone_number),
          status = 'active',
          expires_at = VALUES(expires_at),
          last_payment_at = VALUES(last_payment_at)`,
-      [user_id, username || null, full_name || null, now, expiresAt, now]
+      [user_id, username || null, nim || null, full_name || null, phone_number || null, now, expiresAt, now]
     );
 
     res.json({ success: true });
@@ -397,7 +424,7 @@ app.post("/api/drivers", async (req, res) => {
 app.put("/api/drivers/:userId", async (req, res) => {
   try {
     const db = getPool();
-    const { username, full_name, status, extend_days } = req.body;
+    const { username, nim, full_name, phone_number, status, extend_days } = req.body;
     const userId = req.params.userId;
 
     const updates = [];
@@ -408,9 +435,19 @@ app.put("/api/drivers/:userId", async (req, res) => {
       params.push(username);
     }
 
+    if (nim !== undefined) {
+      updates.push(`nim = ?`);
+      params.push(nim);
+    }
+
     if (full_name !== undefined) {
       updates.push(`full_name = ?`);
       params.push(full_name);
+    }
+
+    if (phone_number !== undefined) {
+      updates.push(`phone_number = ?`);
+      params.push(phone_number);
     }
 
     if (status !== undefined) {
@@ -497,4 +534,4 @@ function startApiServer() {
   });
 }
 
-module.exports = { startApiServer };
+module.exports = { startApiServer, setApiBot };

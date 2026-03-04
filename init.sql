@@ -67,7 +67,9 @@ CREATE TABLE IF NOT EXISTS `user_ratings` (
 CREATE TABLE IF NOT EXISTS `drivers` (
   `user_id` BIGINT PRIMARY KEY,
   `username` VARCHAR(64) NULL,
+  `nim` VARCHAR(64) NULL,
   `full_name` VARCHAR(255) NULL,
+  `phone_number` VARCHAR(32) NULL,
   `status` ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
   `joined_at` DATETIME NOT NULL,
   `expires_at` DATETIME NULL,

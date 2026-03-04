@@ -50,7 +50,7 @@ async function sendDriverActivationMessage(bot, userId, driver, silentNotify) {
 async function fetchDriver(userId) {
   const db = getPool();
   const [rows] = await db.execute(
-    `SELECT user_id, username, full_name, status, joined_at, expires_at, last_payment_at
+    `SELECT user_id, username, nim, full_name, phone_number, status, joined_at, expires_at, last_payment_at
      FROM drivers
      WHERE user_id = ?`,
     [userId]
@@ -64,7 +64,9 @@ async function fetchDriver(userId) {
   return {
     userId: Number(driver.user_id),
     username: driver.username,
+    nim: driver.nim,
     fullName: driver.full_name,
+    phoneNumber: driver.phone_number,
     status: driver.status,
     joinedAt: driver.joined_at ? new Date(driver.joined_at) : null,
     expiresAt: driver.expires_at ? new Date(driver.expires_at) : null,
@@ -90,22 +92,22 @@ async function isDriverActive(userId, referenceDate = new Date()) {
   return !isExpired(driver, referenceDate);
 }
 
-async function upsertDriverRecord(userId, username, fullName, expiresAt, lastPaymentAt, now) {
+async function upsertDriverRecord(userId, username, nim, fullName, phoneNumber, expiresAt, lastPaymentAt, now) {
   const db = getPool();
   const [rows] = await db.execute("SELECT status FROM drivers WHERE user_id = ?", [userId]);
 
   if (rows.length === 0) {
     await db.execute(
-      `INSERT INTO drivers (user_id, username, full_name, status, joined_at, expires_at, last_payment_at)
-       VALUES (?, ?, ?, 'active', ?, ?, ?)`,
-      [userId, username, fullName, now, expiresAt, lastPaymentAt]
+      `INSERT INTO drivers (user_id, username, nim, full_name, phone_number, status, joined_at, expires_at, last_payment_at)
+       VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
+      [userId, username, nim, fullName, phoneNumber, now, expiresAt, lastPaymentAt]
     );
   } else {
     await db.execute(
       `UPDATE drivers
-       SET username = ?, full_name = ?, status = 'active', expires_at = ?, last_payment_at = ?, joined_at = IF(status = 'inactive', ?, joined_at)
+       SET username = ?, nim = ?, full_name = ?, phone_number = ?, status = 'active', expires_at = ?, last_payment_at = ?, joined_at = IF(status = 'inactive', ?, joined_at)
        WHERE user_id = ?`,
-      [username, fullName, expiresAt, lastPaymentAt, now, userId]
+      [username, nim, fullName, phoneNumber, expiresAt, lastPaymentAt, now, userId]
     );
   }
 }
@@ -116,9 +118,11 @@ async function registerDriver(bot, userId, options = {}) {
   const expiresAt = options.expiresAt ? new Date(options.expiresAt) : computeExpiry(now, Number.isNaN(durationDays) || durationDays <= 0 ? 30 : durationDays);
   const lastPaymentAt = options.lastPaymentAt ? new Date(options.lastPaymentAt) : now;
   const username = normalizeUsername(options.username);
+  const nim = options.nim ? String(options.nim).trim() : null;
   const fullName = options.fullName || null;
+  const phoneNumber = options.phoneNumber ? String(options.phoneNumber).trim() : null;
 
-  await upsertDriverRecord(userId, username, fullName, expiresAt, lastPaymentAt, now);
+  await upsertDriverRecord(userId, username, nim, fullName, phoneNumber, expiresAt, lastPaymentAt, now);
 
   const driver = await fetchDriver(userId);
 
@@ -247,7 +251,7 @@ async function searchDriversByQuery(query) {
 
   const [rows] = await db.execute(
     `
-      SELECT user_id, username, full_name, status, joined_at, expires_at
+      SELECT user_id, username, nim, full_name, phone_number, status, joined_at, expires_at
       FROM drivers
       WHERE (${usernameConditions.join(" OR ")})
          OR (full_name IS NOT NULL AND LOWER(full_name) LIKE ?)
@@ -260,7 +264,9 @@ async function searchDriversByQuery(query) {
   return rows.map((row) => ({
     userId: Number(row.user_id),
     username: row.username,
+    nim: row.nim,
     fullName: row.full_name,
+    phoneNumber: row.phone_number,
     status: row.status,
     joinedAt: row.joined_at ? new Date(row.joined_at) : null,
     expiresAt: row.expires_at ? new Date(row.expires_at) : null,
@@ -273,7 +279,7 @@ async function searchDriversByQuery(query) {
 async function getAllDrivers() {
   const db = require("./database").getPool();
   const [rows] = await db.execute(
-    `SELECT user_id, username, full_name, status, joined_at, expires_at, last_payment_at
+    `SELECT user_id, username, nim, full_name, phone_number, status, joined_at, expires_at, last_payment_at
      FROM drivers
      ORDER BY joined_at DESC`
   );

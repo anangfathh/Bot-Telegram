@@ -40,6 +40,69 @@ const formatUsername = (username) => {
   return username.startsWith("@") ? username : `@${username}`;
 };
 
+function parseDriverAddPayload(input) {
+  const parts = input.split("|").map((part) => part.trim());
+
+  if (parts.length < 4) {
+    return {
+      ok: false,
+      message: "Format tambah driver tidak valid.\nGunakan: user_id|nim|nama_lengkap|nomor_hp|durasi_hari",
+    };
+  }
+
+  const targetUserId = Number(parts[0]);
+  if (!parts[0] || Number.isNaN(targetUserId)) {
+    return {
+      ok: false,
+      message: "User ID tidak valid. Contoh: 8375046442",
+    };
+  }
+
+  const nim = parts[1];
+  if (!nim) {
+    return {
+      ok: false,
+      message: "NIM wajib diisi.",
+    };
+  }
+
+  const fullName = parts[2];
+  if (!fullName) {
+    return {
+      ok: false,
+      message: "Nama lengkap wajib diisi.",
+    };
+  }
+
+  const phoneNumber = parts[3];
+  if (!phoneNumber) {
+    return {
+      ok: false,
+      message: "Nomor HP wajib diisi.",
+    };
+  }
+
+  let durationDays;
+  if (parts[4]) {
+    durationDays = Number(parts[4]);
+    if (Number.isNaN(durationDays) || durationDays <= 0) {
+      return {
+        ok: false,
+        message: "Durasi harus berupa angka hari yang valid. Contoh: 30",
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    targetUserId,
+    nim,
+    fullName,
+    phoneNumber,
+    durationDays,
+  };
+}
+
 function registerMessageHandlers(bot) {
   const isDriverAdminUser = (userId) => CONFIG.DRIVER_ADMIN_IDS.includes(userId);
 
@@ -498,7 +561,9 @@ function registerMessageHandlers(bot) {
         chatId,
         action === "driver_remove"
           ? "Kirim user ID driver yang akan dinonaktifkan. Contoh: 8375046442"
-          : "Kirim user ID dan durasi (opsional) dalam format teks. Contoh: 8375046442 30"
+          : action === "driver_add"
+            ? "Kirim data dengan format: user_id|nim|nama_lengkap|nomor_hp|durasi_hari"
+            : "Kirim user ID dan durasi (opsional) dalam format teks. Contoh: 8375046442 30"
       );
       return true;
     }
@@ -515,25 +580,44 @@ function registerMessageHandlers(bot) {
       return true;
     }
 
-    const parts = trimmed.split(/\s+/);
-    const targetUserId = Number(parts[0]);
-
-    if (!parts[0] || Number.isNaN(targetUserId)) {
-      await bot.sendMessage(chatId, "ID pengguna tidak valid. Contoh yang benar: 8375046442");
-      return true;
-    }
-
-    if (action === "driver_remove" && parts.length > 1) {
-      await bot.sendMessage(chatId, "Untuk menghapus driver cukup kirim 1 ID saja. Contoh: 8375046442");
-      return true;
-    }
-
+    let targetUserId;
     let durationDays = undefined;
-    if (parts[1]) {
-      durationDays = Number(parts[1]);
-      if (Number.isNaN(durationDays) || durationDays <= 0) {
-        await bot.sendMessage(chatId, "Durasi harus berupa angka hari yang valid. Contoh: 30");
+    let nim;
+    let fullName;
+    let phoneNumber;
+
+    if (action === "driver_add") {
+      const parsedAddPayload = parseDriverAddPayload(trimmed);
+      if (!parsedAddPayload.ok) {
+        await bot.sendMessage(chatId, parsedAddPayload.message);
         return true;
+      }
+
+      targetUserId = parsedAddPayload.targetUserId;
+      nim = parsedAddPayload.nim;
+      fullName = parsedAddPayload.fullName;
+      phoneNumber = parsedAddPayload.phoneNumber;
+      durationDays = parsedAddPayload.durationDays;
+    } else {
+      const parts = trimmed.split(/\s+/);
+      targetUserId = Number(parts[0]);
+
+      if (!parts[0] || Number.isNaN(targetUserId)) {
+        await bot.sendMessage(chatId, "ID pengguna tidak valid. Contoh yang benar: 8375046442");
+        return true;
+      }
+
+      if (action === "driver_remove" && parts.length > 1) {
+        await bot.sendMessage(chatId, "Untuk menghapus driver cukup kirim 1 ID saja. Contoh: 8375046442");
+        return true;
+      }
+
+      if (parts[1]) {
+        durationDays = Number(parts[1]);
+        if (Number.isNaN(durationDays) || durationDays <= 0) {
+          await bot.sendMessage(chatId, "Durasi harus berupa angka hari yang valid. Contoh: 30");
+          return true;
+        }
       }
     }
 
@@ -549,13 +633,11 @@ function registerMessageHandlers(bot) {
         }
 
         const username = chatInfo?.username ? `@${chatInfo.username}` : undefined;
-        const fullName = chatInfo
-          ? [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(" ").trim() || undefined
-          : undefined;
-
         const driver = await registerDriver(bot, targetUserId, {
           username,
           fullName,
+          nim,
+          phoneNumber,
           durationDays,
         });
 
@@ -563,7 +645,9 @@ function registerMessageHandlers(bot) {
         resultMessage = [
           "✅ Driver berhasil ditambahkan/diaktivasi via menu.",
           `ID: ${targetUserId}`,
+          `NIM: ${driver?.nim || nim || "-"}`,
           `Nama: ${driver?.fullName || fullName || "-"}`,
+          `No. HP: ${driver?.phoneNumber || phoneNumber || "-"}`,
           `Username: ${driver?.username || username || "-"}`,
           `Berlaku sampai: ${expiresLine}`,
         ].join("\n");
