@@ -111,7 +111,6 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { LayoutDashboard, Users, FileText, Star, Car, Menu, Sun, Moon, LogOut, Search, Headset, Settings } from "lucide-vue-next";
 import { Button, Input } from "@/components/ui";
-import { useDark, useToggle } from "@vueuse/core";
 import { logoutAdmin } from "@/api";
 import { clearAuthSession, getAuthUser } from "@/auth";
 
@@ -128,17 +127,48 @@ const currentDateLabel = new Intl.DateTimeFormat("id-ID", {
 const isAuthPage = computed(() => route.meta.public === true);
 const adminLabel = computed(() => getAuthUser()?.username || "admin");
 const pageTitle = computed(() => (route.name ? String(route.name) : "Dashboard"));
+const isDark = ref(false);
 
-const isDark = useDark({
-  selector: "body",
-  attribute: "class",
-  valueDark: "dark",
-  valueLight: "light",
-});
-const toggleTheme = useToggle(isDark);
+function applyThemeClass(darkMode) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document.documentElement.classList.toggle("dark", darkMode);
+  document.documentElement.classList.toggle("light", !darkMode);
+  document.body.classList.toggle("dark", darkMode);
+  document.body.classList.toggle("light", !darkMode);
+}
+
+function initTheme() {
+  const storageKey = "mager-admin-theme";
+  const savedTheme = window.localStorage.getItem(storageKey);
+
+  if (savedTheme === "dark" || savedTheme === "light") {
+    isDark.value = savedTheme === "dark";
+  } else {
+    isDark.value = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+
+  applyThemeClass(isDark.value);
+}
+
+function toggleTheme() {
+  isDark.value = !isDark.value;
+}
 
 onMounted(() => {
+  initTheme();
   isSidebarOpen.value = window.innerWidth >= 1024;
+});
+
+watch(isDark, (value) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem("mager-admin-theme", value ? "dark" : "light");
+  applyThemeClass(value);
 });
 
 watch(
