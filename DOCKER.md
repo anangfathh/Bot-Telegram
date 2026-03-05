@@ -20,10 +20,10 @@ cd Bot-Telegram
 
 ```bash
 # Windows
-copy .env.docker .env
+copy .env.docker.example .env
 
 # Linux/Mac
-cp .env.docker .env
+cp .env.docker.example .env
 ```
 
 ### 3. Edit .env File
@@ -312,7 +312,7 @@ ssh user@server
 
 # 3. Navigate and setup
 cd Bot-Telegram
-cp .env.docker .env
+cp .env.docker.example .env
 nano .env  # Edit credentials
 
 # 4. Run
@@ -454,3 +454,4 @@ Before deploying:
 - [ ] Bot is admin in driver group (if used)
 
 Ready to go! 🚀
+

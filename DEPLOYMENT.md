@@ -102,6 +102,7 @@ nano .env
 # 3. Create Docker secrets
 echo "your-bot-token" | docker secret create telegram_bot_token -
 echo "your-db-password" | docker secret create db_password -
+echo "your-admin-password" | docker secret create admin_password -
 
 # 4. Deploy dengan docker-compose
 docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
@@ -195,7 +196,7 @@ docker-compose logs --tail=100 bot
 docker ps
 
 # API health endpoint
-curl http://localhost:3001/api/stats
+curl http://localhost:3001/health
 
 # Frontend health
 curl http://localhost:8080
@@ -221,6 +222,7 @@ Gunakan Docker secrets untuk data sensitif:
 # Create secrets
 echo "token" | docker secret create telegram_bot_token -
 echo "password" | docker secret create db_password -
+echo "admin-password" | docker secret create admin_password -
 
 # List secrets
 docker secret ls
@@ -244,9 +246,14 @@ TELEGRAM_CHANNEL_ID=your-channel-id
 DB_PASSWORD=strong-password-here
 DB_NAME=mager_bot
 
+# Admin dashboard
+ADMIN_USERNAME=admin
+ADMIN_SESSION_TTL_HOURS=12
+
 # Docker Registry (untuk CI/CD)
 DOCKER_REGISTRY=ghcr.io
-DOCKER_IMAGE_PREFIX=anangfathh/bot-telegram
+DOCKER_IMAGE_BOT=anangfathh/bot-telegram
+DOCKER_IMAGE_FRONTEND=anangfathh/bot-telegram-frontend
 IMAGE_TAG=latest
 ```
 

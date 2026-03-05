@@ -1,12 +1,14 @@
+const { getEnvValue } = require("./env");
+
 const CONFIG = {
-  TOKEN: process.env.TELEGRAM_BOT_TOKEN,
-  CHANNEL_ID: process.env.TELEGRAM_CHANNEL_ID,
-  CHANNEL_USERNAME: process.env.TELEGRAM_CHANNEL_USERNAME || "@cobaanjem",
-  DRIVER_CONTACT_USERNAME: process.env.DRIVER_CONTACT_USERNAME || "@youradmin",
-  DRIVER_GROUP_ID: process.env.DRIVER_GROUP_ID || null,
-  DRIVER_GROUP_INVITE_LINK: process.env.DRIVER_GROUP_INVITE_LINK || null,
-  DRIVER_DEFAULT_ACTIVE_DAYS: Number(process.env.DRIVER_DEFAULT_ACTIVE_DAYS || 30),
-  DRIVER_ADMIN_IDS: (process.env.DRIVER_ADMIN_IDS || "")
+  TOKEN: getEnvValue("TELEGRAM_BOT_TOKEN"),
+  CHANNEL_ID: getEnvValue("TELEGRAM_CHANNEL_ID"),
+  CHANNEL_USERNAME: getEnvValue("TELEGRAM_CHANNEL_USERNAME", "@cobaanjem"),
+  DRIVER_CONTACT_USERNAME: getEnvValue("DRIVER_CONTACT_USERNAME", "@youradmin"),
+  DRIVER_GROUP_ID: getEnvValue("DRIVER_GROUP_ID", null),
+  DRIVER_GROUP_INVITE_LINK: getEnvValue("DRIVER_GROUP_INVITE_LINK", null),
+  DRIVER_DEFAULT_ACTIVE_DAYS: Number(getEnvValue("DRIVER_DEFAULT_ACTIVE_DAYS", 30)),
+  DRIVER_ADMIN_IDS: (getEnvValue("DRIVER_ADMIN_IDS", ""))
     .split(",")
     .map((value) => value.trim())
     .filter((value) => value.length > 0)
@@ -29,12 +31,12 @@ const STATES = {
 };
 
 const DATABASE = {
-  HOST: process.env.DB_HOST || "localhost",
-  PORT: Number(process.env.DB_PORT || 3306),
-  USER: process.env.DB_USER || "root",
-  PASSWORD: process.env.DB_PASSWORD || "",
-  NAME: process.env.DB_NAME || "mager_bot",
-  CONNECTION_LIMIT: Number(process.env.DB_CONNECTION_LIMIT || 10),
+  HOST: getEnvValue("DB_HOST", "localhost"),
+  PORT: Number(getEnvValue("DB_PORT", 3306)),
+  USER: getEnvValue("DB_USER", "root"),
+  PASSWORD: getEnvValue("DB_PASSWORD", ""),
+  NAME: getEnvValue("DB_NAME", "mager_bot"),
+  CONNECTION_LIMIT: Number(getEnvValue("DB_CONNECTION_LIMIT", 10)),
 };
 
 const CALLBACK_DATA = {

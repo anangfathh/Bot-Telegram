@@ -25,7 +25,7 @@ Bot Telegram untuk sistem posting dan manajemen tumpangan (#ANJEM, #JASTIP, #OPE
 
 ```bash
 # 1. Copy environment file
-cp .env.docker .env
+cp .env.docker.example .env
 
 # 2. Edit .env with your credentials
 nano .env  # or notepad .env
@@ -322,7 +322,7 @@ scp -r Bot-Telegram/ user@server:/app/
 
 # 2. Configure
 cd /app/Bot-Telegram
-cp .env.docker .env
+cp .env.docker.example .env
 nano .env
 
 # 3. Deploy
@@ -428,3 +428,4 @@ ISC License - See LICENSE file for details
 ---
 
 Made with ❤️ for Kampusku Community
+

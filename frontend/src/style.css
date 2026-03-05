@@ -1,51 +1,53 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 216 35% 96%;
+    --foreground: 221 32% 14%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 221 32% 14%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 262.1 83.3% 57.8%;
+    --popover-foreground: 221 32% 14%;
+    --primary: 222 36% 12%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
+    --secondary: 210 23% 94%;
+    --secondary-foreground: 221 32% 14%;
+    --muted: 210 20% 93%;
+    --muted-foreground: 220 14% 43%;
+    --accent: 156 40% 93%;
+    --accent-foreground: 154 58% 22%;
+    --destructive: 0 74% 52%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 262.1 83.3% 57.8%;
-    --radius: 0.75rem;
+    --border: 214 22% 88%;
+    --input: 214 22% 88%;
+    --ring: 154 59% 38%;
+    --radius: 0.9rem;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
+    --background: 223 26% 11%;
+    --foreground: 210 40% 98%;
+    --card: 222 23% 14%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
+    --popover: 223 26% 11%;
     --popover-foreground: 0 0% 98%;
-    --primary: 262.1 83.3% 57.8%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 240 3.7% 15.9%;
+    --primary: 205 86% 70%;
+    --primary-foreground: 223 30% 12%;
+    --secondary: 222 20% 20%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --muted: 221 18% 18%;
+    --muted-foreground: 216 16% 72%;
+    --accent: 154 23% 25%;
+    --accent-foreground: 153 40% 80%;
+    --destructive: 0 71% 48%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 262.1 83.3% 57.8%;
+    --border: 222 19% 25%;
+    --input: 222 19% 25%;
+    --ring: 154 52% 48%;
   }
 }
 
@@ -53,7 +55,20 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: "Manrope", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background-image:
+      radial-gradient(circle at 12% 12%, hsl(214 45% 91% / 0.6), transparent 40%),
+      radial-gradient(circle at 88% 90%, hsl(154 32% 87% / 0.35), transparent 34%);
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: "Sora", "Manrope", sans-serif;
   }
 }

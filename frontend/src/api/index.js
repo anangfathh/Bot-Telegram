@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { clearAuthSession, getAuthToken } from '@/auth'
 
 const baseURL = (import.meta.env.VITE_API_URL || '').trim() || '/'
 
@@ -6,6 +7,42 @@ const api = axios.create({
   baseURL,
   timeout: 10000,
 })
+
+api.interceptors.request.use((config) => {
+  const token = getAuthToken()
+
+  if (token) {
+    config.headers = config.headers || {}
+    config.headers.Authorization = `Bearer ${token}`
+  }
+
+  return config
+})
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const isUnauthorized = error.response?.status === 401
+    const requestUrl = error.config?.url || ''
+    const isLoginRequest = requestUrl.includes('/api/auth/login')
+
+    if (isUnauthorized && !isLoginRequest) {
+      clearAuthSession()
+
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        const redirect = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+        window.location.href = `/login?redirect=${redirect}`
+      }
+    }
+
+    return Promise.reject(error)
+  },
+)
+
+// Auth
+export const loginAdmin = (data) => api.post('/api/auth/login', data)
+export const logoutAdmin = () => api.post('/api/auth/logout')
+export const getAuthMe = () => api.get('/api/auth/me')
 
 // Stats
 export const getStats = () => api.get('/api/stats')

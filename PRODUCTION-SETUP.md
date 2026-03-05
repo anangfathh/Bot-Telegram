@@ -30,13 +30,18 @@ DB_PASSWORD=your_secure_password_here
 DB_NAME=mager_bot
 DB_CONNECTION_LIMIT=10
 
+# Admin Dashboard Login
+ADMIN_USERNAME=admin
+ADMIN_SESSION_TTL_HOURS=12
+
 # Ports
 API_PORT=3001
 FRONTEND_PORT=8080
 
 # Docker Registry (for CI/CD)
 DOCKER_REGISTRY=ghcr.io
-DOCKER_IMAGE_PREFIX=anangfathh/bot-telegram
+DOCKER_IMAGE_BOT=anangfathh/bot-telegram
+DOCKER_IMAGE_FRONTEND=anangfathh/bot-telegram-frontend
 IMAGE_TAG=latest
 ```
 
@@ -48,6 +53,7 @@ For production deployment with secrets:
 # Create secrets for sensitive data
 echo "your-telegram-bot-token" | docker secret create telegram_bot_token -
 echo "your-secure-db-password" | docker secret create db_password -
+echo "your-secure-admin-password" | docker secret create admin_password -
 
 # Verify secrets created
 docker secret ls
@@ -117,6 +123,7 @@ nano .env
 # 3. Create Docker secrets
 echo "your-bot-token" | docker secret create telegram_bot_token -
 echo "your-db-password" | docker secret create db_password -
+echo "your-admin-password" | docker secret create admin_password -
 
 # 4. Login to GitHub Container Registry
 echo "YOUR_GITHUB_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
@@ -135,8 +142,8 @@ docker-compose logs -f
 # Check container status
 docker ps
 
-# Test API
-curl http://localhost:3001/api/stats
+# Test API health
+curl http://localhost:3001/health
 
 # Test Frontend
 curl http://localhost:8080

@@ -2,7 +2,7 @@
   <div class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
       <div>
-        <h1 class="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">Ratings</h1>
+        <h1 class="font-display text-3xl font-semibold tracking-tight">Ratings</h1>
         <p class="text-muted-foreground mt-1">Lihat rating antar pengguna</p>
       </div>
     </div>
@@ -48,7 +48,7 @@
         </Card>
       </div>
 
-      <Card class="hidden md:block shadow-sm overflow-hidden border-muted-foreground/20">
+      <Card class="hidden md:block overflow-hidden border-border/70 bg-card/95 shadow-sm">
         <div class="overflow-x-auto">
           <Table>
             <TableHeader class="bg-muted/50">
@@ -90,7 +90,7 @@
     </template>
 
     <!-- Pagination -->
-    <div v-if="pagination.totalPages > 1" class="flex items-center justify-between bg-card p-4 rounded-xl shadow-sm border">
+    <div v-if="pagination.totalPages > 1" class="flex items-center justify-between rounded-2xl border border-border/70 bg-card/95 p-4 shadow-sm">
       <p class="text-sm text-muted-foreground hidden sm:block">
         Menampilkan halaman <span class="font-medium text-foreground">{{ pagination.page }}</span> dari <span class="font-medium text-foreground">{{ pagination.totalPages }}</span>
       </p>

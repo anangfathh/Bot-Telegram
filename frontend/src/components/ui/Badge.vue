@@ -15,7 +15,7 @@ const props = defineProps({
 })
 
 const badgeVariants = cva(
-  'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+  'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
   {
     variants: {
       variant: {
@@ -23,8 +23,8 @@ const badgeVariants = cva(
         secondary: 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
         destructive: 'border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80',
         outline: 'text-foreground',
-        success: 'border-transparent bg-green-500 text-white hover:bg-green-500/80',
-        warning: 'border-transparent bg-yellow-500 text-white hover:bg-yellow-500/80',
+        success: 'border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25',
+        warning: 'border-transparent bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25',
       },
     },
     defaultVariants: {

@@ -1,7 +1,9 @@
 const express = require("express");
 const cors = require("cors");
+const crypto = require("crypto");
 const { getPool } = require("./database");
 const { closePost } = require("./posts");
+const { getEnvValue } = require("./env");
 
 const app = express();
 const API_PORT = process.env.API_PORT || 3001;
@@ -11,9 +13,153 @@ let apiBot = null;
 app.use(cors());
 app.use(express.json());
 
+const sessionTtlHours = Number(getEnvValue("ADMIN_SESSION_TTL_HOURS", 12));
+const AUTH_CONFIG = {
+  ADMIN_USERNAME: getEnvValue("ADMIN_USERNAME", "admin"),
+  ADMIN_PASSWORD: getEnvValue("ADMIN_PASSWORD", "admin123"),
+  SESSION_TTL_MS: (Number.isFinite(sessionTtlHours) && sessionTtlHours > 0 ? sessionTtlHours : 12) * 60 * 60 * 1000,
+};
+const adminSessions = new Map();
+
+function extractBearerToken(headerValue) {
+  if (!headerValue || typeof headerValue !== "string") {
+    return null;
+  }
+
+  const [scheme, token] = headerValue.split(" ");
+  if (scheme !== "Bearer" || !token) {
+    return null;
+  }
+
+  return token;
+}
+
+function cleanupExpiredSessions() {
+  const now = Date.now();
+  for (const [token, session] of adminSessions.entries()) {
+    if (session.expiresAt <= now) {
+      adminSessions.delete(token);
+    }
+  }
+}
+
+function createAdminSession(username) {
+  cleanupExpiredSessions();
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = Date.now() + AUTH_CONFIG.SESSION_TTL_MS;
+
+  adminSessions.set(token, {
+    username,
+    expiresAt,
+  });
+
+  return { token, expiresAt };
+}
+
+function isValidAdminCredential(inputUsername, inputPassword) {
+  if (typeof inputUsername !== "string" || typeof inputPassword !== "string") {
+    return false;
+  }
+
+  const expectedUsername = Buffer.from(AUTH_CONFIG.ADMIN_USERNAME);
+  const expectedPassword = Buffer.from(AUTH_CONFIG.ADMIN_PASSWORD);
+  const providedUsername = Buffer.from(inputUsername);
+  const providedPassword = Buffer.from(inputPassword);
+
+  if (expectedUsername.length !== providedUsername.length || expectedPassword.length !== providedPassword.length) {
+    return false;
+  }
+
+  return (
+    crypto.timingSafeEqual(expectedUsername, providedUsername) &&
+    crypto.timingSafeEqual(expectedPassword, providedPassword)
+  );
+}
+
+function requireAdminAuth(req, res, next) {
+  if (req.path === "/auth/login") {
+    return next();
+  }
+
+  cleanupExpiredSessions();
+
+  const token = extractBearerToken(req.headers.authorization);
+  if (!token) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const session = adminSessions.get(token);
+  if (!session) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  if (session.expiresAt <= Date.now()) {
+    adminSessions.delete(token);
+    return res.status(401).json({ error: "Session expired" });
+  }
+
+  req.admin = {
+    token,
+    username: session.username,
+    expiresAt: session.expiresAt,
+  };
+
+  return next();
+}
+
 function setApiBot(bot) {
   apiBot = bot;
 }
+
+app.get("/health", (_req, res) => {
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ========================================
+// Auth Endpoints
+// ========================================
+
+app.post("/api/auth/login", (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!isValidAdminCredential(username, password)) {
+      return res.status(401).json({ error: "Username atau password salah" });
+    }
+
+    const { token, expiresAt } = createAdminSession(AUTH_CONFIG.ADMIN_USERNAME);
+
+    return res.json({
+      token,
+      expiresAt: new Date(expiresAt).toISOString(),
+      user: {
+        username: AUTH_CONFIG.ADMIN_USERNAME,
+      },
+    });
+  } catch (error) {
+    console.error("Error login admin:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.use("/api", requireAdminAuth);
+
+app.post("/api/auth/logout", (req, res) => {
+  adminSessions.delete(req.admin.token);
+  res.json({ success: true });
+});
+
+app.get("/api/auth/me", (req, res) => {
+  res.json({
+    user: {
+      username: req.admin.username,
+    },
+    expiresAt: new Date(req.admin.expiresAt).toISOString(),
+  });
+});
 
 // ========================================
 // Users Endpoints

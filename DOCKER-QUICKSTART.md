@@ -19,7 +19,7 @@ docker-compose --version
 
 ```bash
 # Copy environment template
-cp .env.docker .env
+cp .env.docker.example .env
 
 # Edit with your credentials
 # Windows: notepad .env
@@ -165,3 +165,4 @@ npm run docker:up
 ```
 
 Done! 🎉
+
