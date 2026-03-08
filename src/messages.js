@@ -1,5 +1,6 @@
 const { CONFIG } = require("./config");
 const { getUserPosts } = require("./database");
+const { formatDriverContactUsernames, normalizeDriverContactUsernames } = require("./settings");
 
 const rupiahFormatter = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -16,6 +17,20 @@ function formatUsernameDisplay(username) {
     return "-";
   }
   return username.startsWith("@") ? username : `@${username}`;
+}
+
+function getDriverContactDisplay(contactUsernames) {
+  return formatDriverContactUsernames(contactUsernames);
+}
+
+function getDriverContactLines(contactUsernames) {
+  const usernames = normalizeDriverContactUsernames(contactUsernames);
+
+  if (usernames.length === 0) {
+    return ["- hubungi admin"];
+  }
+
+  return usernames.map((username) => `- ${username}`);
 }
 
 function formatTimestamp(timestamp) {
@@ -156,7 +171,7 @@ function formatDateTimeId(date) {
     : null;
 }
 
-function getDriverMenuMessage(isDriver, contactUsername) {
+function getDriverMenuMessage(isDriver, contactUsernames) {
   const statusLine = isDriver
     ? "Status Anda saat ini: <b>Driver aktif</b>."
     : "Status Anda saat ini: <b>Belum terdaftar sebagai driver</b>.";
@@ -166,15 +181,16 @@ function getDriverMenuMessage(isDriver, contactUsername) {
     statusLine,
     "",
     "Pendaftaran dan perpanjangan dilakukan melalui admin.",
-    `Hubungi admin driver di: <b>${contactUsername}</b>`,
+    `Hubungi admin driver di: <b>${getDriverContactDisplay(contactUsernames)}</b>`,
   ].join("\n");
 }
 
-function getDriverContactMessage(contactUsername) {
+function getDriverContactMessage(contactUsernames) {
   return [
     "📨 <b>Pendaftaran Driver</b>",
     "",
-    `Silakan hubungi admin driver di: <b>${contactUsername}</b>`,
+    "Silakan hubungi salah satu admin driver berikut:",
+    ...getDriverContactLines(contactUsernames),
     "",
     "Sampaikan data berikut saat menghubungi admin:",
     "• NIM",
@@ -185,13 +201,13 @@ function getDriverContactMessage(contactUsername) {
   ].join("\n");
 }
 
-function getDriverStatusMessage(driver, contactUsername) {
+function getDriverStatusMessage(driver, contactUsernames) {
   if (!driver) {
     return [
       "ℹ️ <b>Status Driver</b>",
       "",
       "Anda belum terdaftar sebagai driver.",
-      `Hubungi admin driver di <b>${contactUsername}</b> untuk pendaftaran.`,
+      `Hubungi admin driver di <b>${getDriverContactDisplay(contactUsernames)}</b> untuk pendaftaran.`,
     ].join("\n");
   }
 
@@ -217,7 +233,7 @@ function getDriverStatusMessage(driver, contactUsername) {
 
   if (driver.status !== "active") {
     lines.push("");
-    lines.push(`Status Anda non-aktif. Hubungi admin di <b>${contactUsername}</b> untuk aktivasi kembali.`);
+    lines.push(`Status Anda non-aktif. Hubungi admin di <b>${getDriverContactDisplay(contactUsernames)}</b> untuk aktivasi kembali.`);
   }
 
   return lines.join("\n");
@@ -232,7 +248,7 @@ function getDriverLookupPromptMessage() {
   ].join("\n");
 }
 
-function getDriverLookupResultMessage(query, matches, contactUsername) {
+function getDriverLookupResultMessage(query, matches, contactUsernames) {
   if (!matches || matches.length === 0) {
     return [
       "🚗 <b>Hasil Check Driver</b>",
@@ -240,7 +256,7 @@ function getDriverLookupResultMessage(query, matches, contactUsername) {
       `Pencarian: <b>${query}</b>`,
       "",
       "Status: <b>Tidak ditemukan / tidak terdaftar</b>",
-      `Silakan hubungi admin driver di <b>${contactUsername}</b> bila perlu verifikasi lebih lanjut.`,
+      `Silakan hubungi admin driver di <b>${getDriverContactDisplay(contactUsernames)}</b> bila perlu verifikasi lebih lanjut.`,
     ].join("\n");
   }
 
@@ -345,7 +361,7 @@ function getRatingLookupPromptMessage() {
   ].join("\n");
 }
 
-function getRatingLookupResultMessage(query, user, summary, contactUsername) {
+function getRatingLookupResultMessage(query, user, summary, contactUsernames) {
   if (!user) {
     return [
       "⭐ <b>Hasil Check Rating</b>",
@@ -353,7 +369,7 @@ function getRatingLookupResultMessage(query, user, summary, contactUsername) {
       `Pencarian: <b>${query}</b>`,
       "",
       "Status: <b>Pengguna belum terdaftar</b>",
-      `Jika ini calon driver, gunakan fitur Check Driver atau hubungi <b>${contactUsername}</b>.`,
+      `Jika ini calon driver, gunakan fitur Check Driver atau hubungi <b>${getDriverContactDisplay(contactUsernames)}</b>.`,
     ].join("\n");
   }
 
@@ -447,7 +463,17 @@ function getPriceWeatherPromptMessage(distanceMeters) {
   ].join("\n");
 }
 
-function getPriceResultMessage({ distance, baseFare, stepFare, steps, isRain, total }) {
+function getPriceResultMessage({
+  distance,
+  baseFare,
+  stepFare,
+  steps,
+  isRain,
+  total,
+  distanceStepMeters,
+  rainSurcharge = 0,
+  nightSurcharge = 0,
+}) {
   const lines = [
     "💸 <b>Estimasi Ongkos</b>",
     "",
@@ -455,10 +481,18 @@ function getPriceResultMessage({ distance, baseFare, stepFare, steps, isRain, to
     `Kondisi: <b>${isRain ? "Hujan" : "Tidak hujan"}</b>`,
     "",
     `Biaya dasar: ${formatCurrency(baseFare)}`,
-    `Kelipatan 500m (${steps}x): ${formatCurrency(stepFare * steps)}`,
-    "",
-    `Total: <b>${formatCurrency(total)}</b>`,
+    `Kelipatan ${distanceStepMeters}m (${steps}x): ${formatCurrency(stepFare * steps)}`,
   ];
+
+  if (isRain && rainSurcharge > 0) {
+    lines.push(`Tambahan hujan: ${formatCurrency(rainSurcharge)}`);
+  }
+
+  if (nightSurcharge > 0) {
+    lines.push(`Tambahan dini hari (23.00-04.59 WIB): ${formatCurrency(nightSurcharge)}`);
+  }
+
+  lines.push("", `Total: <b>${formatCurrency(total)}</b>`);
 
   return lines.join("\n");
 }

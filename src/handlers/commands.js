@@ -6,6 +6,7 @@ const { waitingForForward } = require("../state");
 const { isUserMemberOfChannel } = require("../membership");
 const { isDriverActive, registerDriver, removeDriver, renewDriver, purgeExpiredDrivers } = require("../drivers");
 const { upsertUserProfile } = require("../database");
+const { getRuntimeSettings } = require("../settings");
 
 async function setBotCommands(bot) {
   const commands = [
@@ -25,6 +26,7 @@ async function setBotCommands(bot) {
 
 function registerCommandHandlers(bot) {
   const isDriverAdminUser = (userId) => CONFIG.DRIVER_ADMIN_IDS.includes(userId);
+  const getDriverContactUsernames = () => getRuntimeSettings().driverContactUsernames;
 
   const formatDateTime = (date) =>
     date
@@ -171,7 +173,7 @@ function registerCommandHandlers(bot) {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
     const driverActive = await isDriverActive(userId);
-    const message = getDriverMenuMessage(driverActive, CONFIG.DRIVER_CONTACT_USERNAME || "hubungi admin");
+    const message = getDriverMenuMessage(driverActive, getDriverContactUsernames());
 
     await bot.sendMessage(chatId, message, {
       parse_mode: "HTML",

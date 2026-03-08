@@ -29,6 +29,7 @@ const { isUserMemberOfChannel } = require("../membership");
 const { ensureDriverActive, isDriverActive, fetchDriver } = require("../drivers");
 const { getPostById } = require("../database");
 const { getUserClosablePosts, closePost } = require("../posts");
+const { getRuntimeSettings } = require("../settings");
 
 /**
  * Safe wrapper for editMessageText with fallback to sendMessage
@@ -65,13 +66,20 @@ async function safeEditOrSend(bot, chatId, messageId, text, extra = {}) {
 
 function registerCallbackHandlers(bot) {
   const isDriverAdminUser = (userId) => CONFIG.DRIVER_ADMIN_IDS.includes(userId);
-  const driverContactUsername = CONFIG.DRIVER_CONTACT_USERNAME || "hubungi admin";
-  const driverContactUrl = CONFIG.DRIVER_CONTACT_USERNAME ? `https://t.me/${CONFIG.DRIVER_CONTACT_USERNAME.replace("@", "")}` : null;
   const CLOSE_POST_PREFIX = "close_post:";
   const EDIT_POST_PREFIX = "edit_post:";
   const RATING_SCORE_PREFIX = "rating_score:";
-  const BASE_FARE = 5000;
-  const STEP_FARE = 1000;
+
+  function getDriverContactUsernames() {
+    return getRuntimeSettings().driverContactUsernames;
+  }
+
+  function buildDriverContactButtons() {
+    return getDriverContactUsernames().map((username) => ({
+      text: `Chat ${username}`,
+      url: `https://t.me/${username.replace("@", "")}`,
+    }));
+  }
 
   function buildPostSelectionKeyboard(posts, prefix, backCallback) {
     const keyboard = posts.map((post) => [
@@ -95,14 +103,39 @@ function registerCallbackHandlers(bot) {
     };
   }
 
+  function getJakartaHour(date = new Date()) {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Jakarta",
+      hour: "2-digit",
+      hour12: false,
+    }).formatToParts(date);
+
+    return Number(parts.find((part) => part.type === "hour")?.value || 0);
+  }
+
+  function isNightPricingActive(date = new Date()) {
+    const hour = getJakartaHour(date);
+    return hour >= 23 || hour < 5;
+  }
+
   function calculateFare(distance, isRain) {
-    const multiplier = isRain ? 2 : 1;
+    const pricing = getRuntimeSettings().pricing;
     const normalizedDistance = Math.max(0, Number(distance) || 0);
-    const steps = Math.max(0, Math.ceil(normalizedDistance / 500) - 1);
-    const baseFare = BASE_FARE * multiplier;
-    const stepFare = STEP_FARE * multiplier;
-    const total = baseFare + steps * stepFare;
-    return { baseFare, stepFare, steps, total };
+    const steps = Math.max(0, Math.ceil(normalizedDistance / pricing.distanceStepMeters) - 1);
+    const baseFare = pricing.baseFare;
+    const stepFare = pricing.stepFare;
+    const rainSurcharge = isRain ? pricing.rainSurcharge : 0;
+    const nightSurcharge = isNightPricingActive() ? pricing.nightSurcharge : 0;
+    const total = baseFare + steps * stepFare + rainSurcharge + nightSurcharge;
+    return {
+      baseFare,
+      stepFare,
+      steps,
+      total,
+      distanceStepMeters: pricing.distanceStepMeters,
+      rainSurcharge,
+      nightSurcharge,
+    };
   }
 
   async function handleCheckMembership(query) {
@@ -190,7 +223,7 @@ function registerCallbackHandlers(bot) {
 
     const isAdmin = isDriverAdminUser(query.from.id);
 
-    await bot.editMessageText(getDriverMenuMessage(false, driverContactUsername), {
+    await bot.editMessageText(getDriverMenuMessage(false, getDriverContactUsernames()), {
       chat_id: chatId,
       message_id: messageId,
       parse_mode: "HTML",
@@ -509,7 +542,7 @@ function registerCallbackHandlers(bot) {
     }
 
     const distance = userState.distance;
-    const { baseFare, stepFare, steps, total } = calculateFare(distance, isRain);
+    const { baseFare, stepFare, steps, total, distanceStepMeters, rainSurcharge, nightSurcharge } = calculateFare(distance, isRain);
     const resultText = getPriceResultMessage({
       distance,
       baseFare,
@@ -517,6 +550,9 @@ function registerCallbackHandlers(bot) {
       steps,
       isRain,
       total,
+      distanceStepMeters,
+      rainSurcharge,
+      nightSurcharge,
     });
 
     clearUserState(chatId);
@@ -540,7 +576,7 @@ function registerCallbackHandlers(bot) {
 
     const isActive = await isDriverActive(userId);
     const isAdmin = isDriverAdminUser(userId);
-    const message = getDriverMenuMessage(isActive, driverContactUsername);
+    const message = getDriverMenuMessage(isActive, getDriverContactUsernames());
 
     await bot.editMessageText(message, {
       chat_id: chatId,
@@ -646,12 +682,8 @@ function registerCallbackHandlers(bot) {
     const chatId = query.message.chat.id;
     const messageId = query.message.message_id;
 
-    const message = getDriverContactMessage(driverContactUsername);
-    const inlineKeyboard = [];
-
-    if (driverContactUrl) {
-      inlineKeyboard.push([{ text: "💬 Chat Admin", url: driverContactUrl }]);
-    }
+    const message = getDriverContactMessage(getDriverContactUsernames());
+    const inlineKeyboard = buildDriverContactButtons().map((button) => [button]);
 
     inlineKeyboard.push([{ text: "🔙 Kembali", callback_data: CALLBACK_DATA.DRIVER_MENU }]);
 
@@ -674,7 +706,7 @@ function registerCallbackHandlers(bot) {
     let driver = status.ok ? status.driver : await fetchDriver(userId);
 
     // If ensureDriverActive removed the record (expired), fetchDriver will return null.
-    const message = getDriverStatusMessage(driver, driverContactUsername);
+    const message = getDriverStatusMessage(driver, getDriverContactUsernames());
 
     await bot.editMessageText(message, {
       chat_id: chatId,

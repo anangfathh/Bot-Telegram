@@ -1,13 +1,31 @@
 const { getEnvValue } = require("./env");
 
+function parseDriverContactUsernames(value) {
+  return String(value || "")
+    .split(/[\r\n,]+/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+    .map((item) => (item.startsWith("@") ? item : `@${item}`));
+}
+
+const driverContactUsernames = parseDriverContactUsernames(
+  getEnvValue("DRIVER_CONTACT_USERNAME", "@youradmin")
+);
+
 const CONFIG = {
   TOKEN: getEnvValue("TELEGRAM_BOT_TOKEN"),
   CHANNEL_ID: getEnvValue("TELEGRAM_CHANNEL_ID"),
   CHANNEL_USERNAME: getEnvValue("TELEGRAM_CHANNEL_USERNAME", "@cobaanjem"),
-  DRIVER_CONTACT_USERNAME: getEnvValue("DRIVER_CONTACT_USERNAME", "@youradmin"),
+  DRIVER_CONTACT_USERNAME: driverContactUsernames[0] || "@youradmin",
+  DRIVER_CONTACT_USERNAMES: driverContactUsernames,
   DRIVER_GROUP_ID: getEnvValue("DRIVER_GROUP_ID", null),
   DRIVER_GROUP_INVITE_LINK: getEnvValue("DRIVER_GROUP_INVITE_LINK", null),
   DRIVER_DEFAULT_ACTIVE_DAYS: Number(getEnvValue("DRIVER_DEFAULT_ACTIVE_DAYS", 30)),
+  PRICE_BASE_FARE: Number(getEnvValue("PRICE_BASE_FARE", 7000)),
+  PRICE_STEP_FARE: Number(getEnvValue("PRICE_STEP_FARE", 1500)),
+  PRICE_DISTANCE_STEP_METERS: Number(getEnvValue("PRICE_DISTANCE_STEP_METERS", 500)),
+  PRICE_RAIN_SURCHARGE: Number(getEnvValue("PRICE_RAIN_SURCHARGE", 5000)),
+  PRICE_NIGHT_SURCHARGE: Number(getEnvValue("PRICE_NIGHT_SURCHARGE", 5000)),
   DRIVER_ADMIN_IDS: (getEnvValue("DRIVER_ADMIN_IDS", ""))
     .split(",")
     .map((value) => value.trim())

@@ -47,6 +47,10 @@ export const getAuthMe = () => api.get('/api/auth/me')
 // Stats
 export const getStats = () => api.get('/api/stats')
 
+// Settings
+export const getSettings = () => api.get('/api/settings')
+export const updateSettings = (data) => api.put('/api/settings', data)
+
 // Users
 export const getUsers = (params) => api.get('/api/users', { params })
 export const searchUsers = (q) => api.get('/api/users/search', { params: { q } })

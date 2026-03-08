@@ -14,6 +14,7 @@ const { registerMessageHandlers } = require("./src/handlers/messages");
 const { registerSystemHandlers } = require("./src/handlers/system");
 const { startPostScheduler } = require("./src/scheduler");
 const { startApiServer, setApiBot } = require("./src/api");
+const { loadRuntimeSettings } = require("./src/settings");
 
 let bot;
 let apiServer;
@@ -21,6 +22,7 @@ let apiServer;
 (async () => {
   try {
     await initDatabase();
+    await loadRuntimeSettings();
 
     // Start API Server
     apiServer = await startApiServer();

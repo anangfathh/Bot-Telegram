@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const { getPool } = require("./database");
 const { closePost } = require("./posts");
 const { getEnvValue } = require("./env");
+const { getRuntimeSettings, saveRuntimeSettings } = require("./settings");
 
 const app = express();
 const API_PORT = process.env.API_PORT || 3001;
@@ -159,6 +160,37 @@ app.get("/api/auth/me", (req, res) => {
     },
     expiresAt: new Date(req.admin.expiresAt).toISOString(),
   });
+});
+
+// ========================================
+// Settings Endpoints
+// ========================================
+
+app.get("/api/settings", (_req, res) => {
+  const settings = getRuntimeSettings();
+
+  res.json({
+    data: settings,
+  });
+});
+
+app.put("/api/settings", async (req, res) => {
+  try {
+    const settings = await saveRuntimeSettings(req.body || {});
+    res.json({
+      success: true,
+      data: settings,
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    if (statusCode >= 500) {
+      console.error("Error updating settings:", error);
+    }
+
+    res.status(statusCode).json({
+      error: statusCode === 500 ? "Internal server error" : error.message,
+    });
+  }
 });
 
 // ========================================

@@ -32,6 +32,7 @@ const {
 } = require("../messages");
 const { buildDriverMenuKeyboard } = require("../keyboards");
 const { editPost } = require("../posts");
+const { getRuntimeSettings } = require("../settings");
 const RATING_SCORE_PREFIX = "rating_score:";
 const formatUsername = (username) => {
   if (!username) {
@@ -105,6 +106,7 @@ function parseDriverAddPayload(input) {
 
 function registerMessageHandlers(bot) {
   const isDriverAdminUser = (userId) => CONFIG.DRIVER_ADMIN_IDS.includes(userId);
+  const getDriverContactUsernames = () => getRuntimeSettings().driverContactUsernames;
 
   const formatDateTime = (date) =>
     date
@@ -357,7 +359,7 @@ function registerMessageHandlers(bot) {
       clearUserState(chatId);
       await bot.sendMessage(
         chatId,
-        getRatingLookupResultMessage(text, null, null, CONFIG.DRIVER_CONTACT_USERNAME || "hubungi admin"),
+        getRatingLookupResultMessage(text, null, null, getDriverContactUsernames()),
         {
           parse_mode: "HTML",
           reply_markup: {
@@ -387,7 +389,7 @@ function registerMessageHandlers(bot) {
 
     await bot.sendMessage(
       chatId,
-      getRatingLookupResultMessage(text, target, summary, CONFIG.DRIVER_CONTACT_USERNAME || "hubungi admin"),
+      getRatingLookupResultMessage(text, target, summary, getDriverContactUsernames()),
       {
         parse_mode: "HTML",
         reply_markup: {
@@ -463,7 +465,7 @@ function registerMessageHandlers(bot) {
     const message = getDriverLookupResultMessage(
       text,
       enhancedMatches,
-      CONFIG.DRIVER_CONTACT_USERNAME || "hubungi admin"
+      getDriverContactUsernames()
     );
 
     await bot.sendMessage(chatId, message, {
@@ -718,7 +720,7 @@ function registerMessageHandlers(bot) {
 
         await bot.sendMessage(
           chatId,
-          `${notice}\n\n${getDriverMenuMessage(false, CONFIG.DRIVER_CONTACT_USERNAME || "hubungi admin")}`,
+          `${notice}\n\n${getDriverMenuMessage(false, getDriverContactUsernames())}`,
           {
             parse_mode: "HTML",
             reply_markup: buildDriverMenuKeyboard(false, isDriverAdminUser(userId)),

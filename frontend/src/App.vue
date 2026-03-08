@@ -52,10 +52,10 @@
             <Headset class="h-4 w-4" />
             Support
           </button>
-          <button type="button" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground">
+          <router-link to="/settings" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground">
             <Settings class="h-4 w-4" />
             Settings
-          </button>
+          </router-link>
         </div>
         <div class="flex items-center gap-3 rounded-xl border border-border/80 bg-background/85 p-2.5">
           <div class="flex h-9 w-9 items-center justify-center rounded-full border border-border/80 bg-secondary">
@@ -207,6 +207,10 @@ const navGroups = [
   {
     title: "Feedback",
     items: [{ path: "/ratings", label: "Ratings", icon: Star }],
+  },
+  {
+    title: "System",
+    items: [{ path: "/settings", label: "Settings", icon: Settings }],
   },
 ];
 </script>
