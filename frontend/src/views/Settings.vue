@@ -49,6 +49,10 @@
               <Input v-model="form.baseFare" type="number" min="1" placeholder="7000" />
             </div>
             <div class="space-y-2">
+              <label class="text-sm font-medium">Tarif dasar sampai (meter)</label>
+              <Input v-model="form.baseDistanceMeters" type="number" min="1" placeholder="2000" />
+            </div>
+            <div class="space-y-2">
               <label class="text-sm font-medium">Biaya per langkah</label>
               <Input v-model="form.stepFare" type="number" min="1" placeholder="1500" />
             </div>
@@ -152,6 +156,7 @@ const successMessage = ref("");
 
 const form = reactive({
   baseFare: "",
+  baseDistanceMeters: "",
   stepFare: "",
   distanceStepMeters: "",
   rainSurcharge: "",
@@ -175,6 +180,7 @@ const driverContacts = computed(() => {
 
 const pricingNumbers = computed(() => ({
   baseFare: Number(form.baseFare) || 0,
+  baseDistanceMeters: Number(form.baseDistanceMeters) || 0,
   stepFare: Number(form.stepFare) || 0,
   distanceStepMeters: Number(form.distanceStepMeters) || 0,
   rainSurcharge: Number(form.rainSurcharge) || 0,
@@ -183,7 +189,7 @@ const pricingNumbers = computed(() => ({
 
 const pricingSummary = computed(() => {
   const pricing = pricingNumbers.value;
-  return `${currencyFormatter.format(pricing.baseFare)} biaya awal + ${currencyFormatter.format(pricing.stepFare)} tiap ${pricing.distanceStepMeters} meter berikutnya.`;
+  return `${currencyFormatter.format(pricing.baseFare)} sampai ${pricing.baseDistanceMeters} meter, lalu +${currencyFormatter.format(pricing.stepFare)} tiap ${pricing.distanceStepMeters} meter berikutnya.`;
 });
 
 const rainyPricingSummary = computed(() => {
@@ -198,6 +204,7 @@ const nightPricingSummary = computed(() => {
 
 function applySettings(settings) {
   form.baseFare = String(settings.pricing.baseFare ?? "");
+  form.baseDistanceMeters = String(settings.pricing.baseDistanceMeters ?? "");
   form.stepFare = String(settings.pricing.stepFare ?? "");
   form.distanceStepMeters = String(settings.pricing.distanceStepMeters ?? "");
   form.rainSurcharge = String(settings.pricing.rainSurcharge ?? "");
@@ -236,6 +243,7 @@ async function saveSettings() {
       driverContactUsernames: driverContacts.value,
       pricing: {
         baseFare: Number(form.baseFare),
+        baseDistanceMeters: Number(form.baseDistanceMeters),
         stepFare: Number(form.stepFare),
         distanceStepMeters: Number(form.distanceStepMeters),
         rainSurcharge: Number(form.rainSurcharge),

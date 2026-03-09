@@ -121,7 +121,8 @@ function registerCallbackHandlers(bot) {
   function calculateFare(distance, isRain) {
     const pricing = getRuntimeSettings().pricing;
     const normalizedDistance = Math.max(0, Number(distance) || 0);
-    const steps = Math.max(0, Math.ceil(normalizedDistance / pricing.distanceStepMeters) - 1);
+    const extraDistance = Math.max(0, normalizedDistance - pricing.baseDistanceMeters);
+    const steps = Math.max(0, Math.ceil(extraDistance / pricing.distanceStepMeters));
     const baseFare = pricing.baseFare;
     const stepFare = pricing.stepFare;
     const rainSurcharge = isRain ? pricing.rainSurcharge : 0;
@@ -132,6 +133,7 @@ function registerCallbackHandlers(bot) {
       stepFare,
       steps,
       total,
+      baseDistanceMeters: pricing.baseDistanceMeters,
       distanceStepMeters: pricing.distanceStepMeters,
       rainSurcharge,
       nightSurcharge,
@@ -542,7 +544,7 @@ function registerCallbackHandlers(bot) {
     }
 
     const distance = userState.distance;
-    const { baseFare, stepFare, steps, total, distanceStepMeters, rainSurcharge, nightSurcharge } = calculateFare(distance, isRain);
+    const { baseFare, stepFare, steps, total, baseDistanceMeters, distanceStepMeters, rainSurcharge, nightSurcharge } = calculateFare(distance, isRain);
     const resultText = getPriceResultMessage({
       distance,
       baseFare,
@@ -550,6 +552,7 @@ function registerCallbackHandlers(bot) {
       steps,
       isRain,
       total,
+      baseDistanceMeters,
       distanceStepMeters,
       rainSurcharge,
       nightSurcharge,

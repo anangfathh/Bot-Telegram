@@ -41,6 +41,7 @@ function formatDriverContactUsernames(usernames) {
 function getDefaultPricing() {
   return {
     baseFare: toPositiveInteger(CONFIG.PRICE_BASE_FARE, 7000),
+    baseDistanceMeters: toPositiveInteger(CONFIG.PRICE_BASE_DISTANCE_METERS, 2000),
     stepFare: toPositiveInteger(CONFIG.PRICE_STEP_FARE, 1500),
     distanceStepMeters: toPositiveInteger(CONFIG.PRICE_DISTANCE_STEP_METERS, 500),
     rainSurcharge: toPositiveInteger(CONFIG.PRICE_RAIN_SURCHARGE, 5000),
@@ -65,6 +66,7 @@ function syncConfigFromSettings(settings) {
   CONFIG.DRIVER_CONTACT_USERNAMES = [...settings.driverContactUsernames];
   CONFIG.DRIVER_CONTACT_USERNAME = settings.driverContactUsernames[0] || "";
   CONFIG.PRICE_BASE_FARE = settings.pricing.baseFare;
+  CONFIG.PRICE_BASE_DISTANCE_METERS = settings.pricing.baseDistanceMeters;
   CONFIG.PRICE_STEP_FARE = settings.pricing.stepFare;
   CONFIG.PRICE_DISTANCE_STEP_METERS = settings.pricing.distanceStepMeters;
   CONFIG.PRICE_RAIN_SURCHARGE = settings.pricing.rainSurcharge;
@@ -112,6 +114,7 @@ function buildSettingsFromStoredRows(rows) {
 
       nextSettings.pricing = {
         baseFare,
+        baseDistanceMeters: toPositiveInteger(parsedValue.baseDistanceMeters, defaults.pricing.baseDistanceMeters),
         stepFare: toPositiveInteger(parsedValue.stepFare, defaults.pricing.stepFare),
         distanceStepMeters: toPositiveInteger(
           parsedValue.distanceStepMeters,
@@ -166,6 +169,7 @@ function validateSettingsInput(input) {
     } else {
       const pricingFields = [
         ["baseFare", "Biaya dasar"],
+        ["baseDistanceMeters", "Batas tarif dasar"],
         ["stepFare", "Biaya per langkah"],
         ["distanceStepMeters", "Jarak per langkah"],
         ["nightSurcharge", "Tambahan dini hari"],

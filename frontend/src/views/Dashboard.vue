@@ -86,25 +86,16 @@
     <Card class="border-border/70 bg-card/95 shadow-sm">
       <CardHeader class="flex flex-col gap-3 pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <CardTitle class="text-xl font-semibold tracking-tight">Website traffic</CardTitle>
-          <CardDescription class="mt-1">Visualisasi tren performa berdasarkan data saat ini.</CardDescription>
+          <CardTitle class="text-xl font-semibold tracking-tight">Post traffic</CardTitle>
+          <CardDescription class="mt-1">Visualisasi jumlah posting dan user posting berdasarkan data `user_posts` dari database.</CardDescription>
         </div>
-        <div class="inline-flex items-center gap-1 rounded-xl border border-border/70 bg-background/90 p-1">
-          <button
-            v-for="period in periods"
-            :key="period"
-            type="button"
-            class="rounded-lg px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="period === selectedPeriod ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'"
-          >
-            {{ period }}
-          </button>
-          <button type="button" class="rounded-lg border border-border/70 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground">+</button>
+        <div class="inline-flex items-center rounded-xl border border-border/70 bg-background/90 px-3 py-2 text-xs font-medium text-muted-foreground">
+          12 bulan terakhir
         </div>
       </CardHeader>
       <CardContent class="pt-0">
         <div class="h-[320px] w-full">
-          <Overview :stats="stats" v-if="!loading" />
+          <Overview :traffic="stats.postTraffic || []" v-if="!loading" />
           <div v-else class="flex h-full items-center justify-center">
             <Loader2 class="h-8 w-8 animate-spin text-primary" />
           </div>
@@ -196,8 +187,6 @@ import { getStats } from "@/api";
 const stats = ref({});
 const loading = ref(true);
 const linkCopied = ref(false);
-const periods = ["12m", "30d", "7d", "24h", "Custom"];
-const selectedPeriod = "Custom";
 
 const calcPercent = (value = 0, total = 0) => {
   if (!total) return "0.0%";

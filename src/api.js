@@ -674,6 +674,11 @@ app.delete("/api/drivers/:userId", async (req, res) => {
 app.get("/api/stats", async (req, res) => {
   try {
     const db = getPool();
+    const monthFormatter = new Intl.DateTimeFormat("id-ID", { month: "short", year: "2-digit" });
+    const startMonth = new Date();
+    startMonth.setDate(1);
+    startMonth.setHours(0, 0, 0, 0);
+    startMonth.setMonth(startMonth.getMonth() - 11);
 
     const [[usersCount]] = await db.execute(`SELECT COUNT(*) as count FROM users`);
     const [[postsCount]] = await db.execute(`SELECT COUNT(*) as count FROM user_posts`);
@@ -683,6 +688,41 @@ app.get("/api/stats", async (req, res) => {
       `SELECT COUNT(*) as count FROM drivers WHERE status = 'active' AND (expires_at IS NULL OR expires_at > NOW())`
     );
     const [[ratingsCount]] = await db.execute(`SELECT COUNT(*) as count FROM user_ratings`);
+    const [postTrafficRows] = await db.execute(
+      `SELECT DATE_FORMAT(timestamp, '%Y-%m') as month_key,
+              COUNT(*) as total_posts,
+              COUNT(DISTINCT user_id) as unique_posters
+       FROM user_posts
+       WHERE timestamp >= ?
+       GROUP BY month_key
+       ORDER BY month_key ASC`,
+      [startMonth]
+    );
+
+    const trafficMap = new Map(
+      postTrafficRows.map((row) => [
+        row.month_key,
+        {
+          totalPosts: Number(row.total_posts || 0),
+          uniquePosters: Number(row.unique_posters || 0),
+        },
+      ])
+    );
+
+    const postTraffic = [];
+    for (let index = 0; index < 12; index += 1) {
+      const monthDate = new Date(startMonth);
+      monthDate.setMonth(startMonth.getMonth() + index);
+      const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
+      const bucket = trafficMap.get(monthKey) || { totalPosts: 0, uniquePosters: 0 };
+
+      postTraffic.push({
+        key: monthKey,
+        label: monthFormatter.format(monthDate),
+        totalPosts: bucket.totalPosts,
+        uniquePosters: bucket.uniquePosters,
+      });
+    }
 
     res.json({
       users: usersCount.count,
@@ -695,6 +735,7 @@ app.get("/api/stats", async (req, res) => {
         active: activeDriversCount.count,
       },
       ratings: ratingsCount.count,
+      postTraffic,
     });
   } catch (error) {
     console.error("Error fetching stats:", error);

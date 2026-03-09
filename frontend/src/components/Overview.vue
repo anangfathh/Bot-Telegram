@@ -10,13 +10,11 @@ import { Line } from "vue-chartjs";
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 const props = defineProps({
-  stats: {
-    type: Object,
-    default: () => ({}),
+  traffic: {
+    type: Array,
+    default: () => [],
   },
 });
-
-const labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const palette = ref({
   foreground: "#111827",
   muted: "#64748b",
@@ -37,32 +35,14 @@ const syncPalette = () => {
   };
 };
 
-const buildTrend = (base, variance, phaseShift = 0) =>
-  labels.map((_, index) => {
-    const wave = Math.sin((index + phaseShift) * 0.92) * variance;
-    const curve = Math.cos((index + 1 + phaseShift) * 0.47) * variance * 0.58;
-    return Math.max(6, Math.round(base * (0.9 + wave + curve)));
-  });
-
-const chartSeries = computed(() => {
-  const totalSignal = (props.stats.users || 0) + (props.stats.posts?.total || 0) + (props.stats.drivers?.total || 0) + (props.stats.ratings || 0);
-  const activeSignal = (props.stats.posts?.active || 0) + (props.stats.drivers?.active || 0) + Math.round((props.stats.users || 0) * 0.65);
-
-  const totalBase = Math.max(25, Math.round(totalSignal / 10));
-  const activeBase = Math.max(16, Math.round(activeSignal / 10));
-
-  return {
-    total: buildTrend(totalBase, 0.23, 0.8),
-    active: buildTrend(activeBase, 0.18, 2.2),
-  };
-});
+const labels = computed(() => props.traffic.map((item) => item.label));
 
 const data = computed(() => ({
-  labels,
+  labels: labels.value,
   datasets: [
     {
-      label: "Activity",
-      data: chartSeries.value.total,
+      label: "Posts",
+      data: props.traffic.map((item) => item.totalPosts),
       borderColor: palette.value.foreground,
       backgroundColor: palette.value.foreground.replace(")", " / 0.1)"),
       fill: true,
@@ -73,8 +53,8 @@ const data = computed(() => ({
       pointHoverBackgroundColor: palette.value.foreground,
     },
     {
-      label: "Baseline",
-      data: chartSeries.value.active,
+      label: "Unique Posters",
+      data: props.traffic.map((item) => item.uniquePosters),
       borderColor: palette.value.muted,
       borderDash: [5, 4],
       tension: 0.42,

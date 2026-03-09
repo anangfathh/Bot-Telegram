@@ -470,6 +470,7 @@ function getPriceResultMessage({
   steps,
   isRain,
   total,
+  baseDistanceMeters,
   distanceStepMeters,
   rainSurcharge = 0,
   nightSurcharge = 0,
@@ -480,8 +481,8 @@ function getPriceResultMessage({
     `Jarak: <b>${distance} meter</b>`,
     `Kondisi: <b>${isRain ? "Hujan" : "Tidak hujan"}</b>`,
     "",
-    `Biaya dasar: ${formatCurrency(baseFare)}`,
-    `Kelipatan ${distanceStepMeters}m (${steps}x): ${formatCurrency(stepFare * steps)}`,
+    `Biaya dasar (<= ${baseDistanceMeters}m): ${formatCurrency(baseFare)}`,
+    `Tambahan ${distanceStepMeters}m setelah ${baseDistanceMeters}m (${steps}x): ${formatCurrency(stepFare * steps)}`,
   ];
 
   if (isRain && rainSurcharge > 0) {
