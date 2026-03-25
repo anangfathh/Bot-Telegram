@@ -53,9 +53,7 @@ function formatTimestamp(timestamp) {
 }
 
 function getWelcomeMessage(firstName, isMember) {
-  const membershipWarning = !isMember
-    ? "\n⚠️ <i>Harap join channel terlebih dahulu untuk mengakses fitur KampusGO Undip</i>\n"
-    : "";
+  const membershipWarning = !isMember ? "\n⚠️ <i>Harap join channel terlebih dahulu untuk mengakses fitur KampusGO Undip</i>\n" : "";
 
   return `Hai ${firstName}! 👋
 
@@ -172,17 +170,9 @@ function formatDateTimeId(date) {
 }
 
 function getDriverMenuMessage(isDriver, contactUsernames) {
-  const statusLine = isDriver
-    ? "Status Anda saat ini: <b>Driver aktif</b>."
-    : "Status Anda saat ini: <b>Belum terdaftar sebagai driver</b>.";
+  const statusLine = isDriver ? "Status Anda saat ini: <b>Driver aktif</b>." : "Status Anda saat ini: <b>Belum terdaftar sebagai driver</b>.";
 
-  return [
-    "🚗 <b>Menu Driver</b>",
-    statusLine,
-    "",
-    "Pendaftaran dan perpanjangan dilakukan melalui admin.",
-    `Hubungi admin driver di: <b>${getDriverContactDisplay(contactUsernames)}</b>`,
-  ].join("\n");
+  return ["🚗 <b>Menu Driver</b>", statusLine, "", "Pendaftaran dan perpanjangan dilakukan melalui admin.", `Hubungi admin driver di: <b>${getDriverContactDisplay(contactUsernames)}</b>`].join("\n");
 }
 
 function getDriverContactMessage(contactUsernames) {
@@ -203,12 +193,7 @@ function getDriverContactMessage(contactUsernames) {
 
 function getDriverStatusMessage(driver, contactUsernames) {
   if (!driver) {
-    return [
-      "ℹ️ <b>Status Driver</b>",
-      "",
-      "Anda belum terdaftar sebagai driver.",
-      `Hubungi admin driver di <b>${getDriverContactDisplay(contactUsernames)}</b> untuk pendaftaran.`,
-    ].join("\n");
+    return ["ℹ️ <b>Status Driver</b>", "", "Anda belum terdaftar sebagai driver.", `Hubungi admin driver di <b>${getDriverContactDisplay(contactUsernames)}</b> untuk pendaftaran.`].join("\n");
   }
 
   const lines = [
@@ -240,12 +225,7 @@ function getDriverStatusMessage(driver, contactUsernames) {
 }
 
 function getDriverLookupPromptMessage() {
-  return [
-    "🚗 <b>Check Driver</b>",
-    "",
-    "Masukkan <b>username</b> (contoh: <code>@driver123</code>) atau <b>nama lengkap</b> calon driver.",
-    "Ketik <b>BATAL</b> untuk membatalkan.",
-  ].join("\n");
+  return ["🚗 <b>Check Driver</b>", "", "Masukkan <b>username</b> (contoh: <code>@driver123</code>) atau <b>nama lengkap</b> calon driver.", "Ketik <b>BATAL</b> untuk membatalkan."].join("\n");
 }
 
 function getDriverLookupResultMessage(query, matches, contactUsernames) {
@@ -260,25 +240,12 @@ function getDriverLookupResultMessage(query, matches, contactUsernames) {
     ].join("\n");
   }
 
-  const lines = [
-    "🚗 <b>Hasil Check Driver</b>",
-    "",
-    `Pencarian: <b>${query}</b>`,
-    "",
-    `Ditemukan ${matches.length} driver aktif:`,
-    "",
-  ];
+  const lines = ["🚗 <b>Hasil Check Driver</b>", "", `Pencarian: <b>${query}</b>`, "", `Ditemukan ${matches.length} driver aktif:`, ""];
 
   matches.forEach((driver, index) => {
     const summary = driver.ratingSummary;
-    const ratingText = summary && summary.total > 0
-      ? `Rating: ${summary.average?.toFixed(2) || "0.00"} (${summary.total} penilaian)`
-      : "Belum ada rating";
-    lines.push(
-      `${index + 1}. <b>${driver.fullName || "-"}</b> (${formatUsernameDisplay(driver.username)})${
-        driver.expiresAt ? ` • Berlaku sampai ${formatDateTimeId(driver.expiresAt)}` : ""
-      }`
-    );
+    const ratingText = summary && summary.total > 0 ? `Rating: ${summary.average?.toFixed(2) || "0.00"} (${summary.total} penilaian)` : "Belum ada rating";
+    lines.push(`${index + 1}. <b>${driver.fullName || "-"}</b> (${formatUsernameDisplay(driver.username)})${driver.expiresAt ? ` • Berlaku sampai ${formatDateTimeId(driver.expiresAt)}` : ""}`);
     lines.push(`   ${ratingText}`);
   });
 
@@ -297,12 +264,7 @@ function getRatingTargetPromptMessage() {
 }
 
 function getRatingAmbiguousMessage(matches) {
-  const lines = [
-    "⭐ <b>Pencarian Tidak Spesifik</b>",
-    "",
-    "Kami menemukan beberapa pengguna. Silakan kirim ulang dengan username yang lebih spesifik:",
-    "",
-  ];
+  const lines = ["⭐ <b>Pencarian Tidak Spesifik</b>", "", "Kami menemukan beberapa pengguna. Silakan kirim ulang dengan username yang lebih spesifik:", ""];
 
   matches.forEach((user, index) => {
     lines.push(`${index + 1}. <b>${user.fullName || "-"}</b> (${formatUsernameDisplay(user.username)})`);
@@ -312,53 +274,26 @@ function getRatingAmbiguousMessage(matches) {
 }
 
 function getRatingScorePromptMessage(targetDisplay) {
-  return [
-    "⭐ <b>Pilih Rating</b>",
-    "",
-    `Target: <b>${targetDisplay}</b>`,
-    "",
-    "Pilih skor 1-5 (1 = buruk, 5 = sangat baik).",
-  ].join("\n");
+  return ["⭐ <b>Pilih Rating</b>", "", `Target: <b>${targetDisplay}</b>`, "", "Pilih skor 1-5 (1 = buruk, 5 = sangat baik)."].join("\n");
 }
 
 function getRatingCommentPromptMessage(targetDisplay) {
-  return [
-    "📝 <b>Tambah Ulasan</b>",
-    "",
-    `Target: <b>${targetDisplay}</b>`,
-    "",
-    "Kirim ulasan singkat (opsional).",
-    "Ketik <b>-</b> untuk melewati atau <b>BATAL</b> untuk membatalkan.",
-  ].join("\n");
+  return ["📝 <b>Tambah Ulasan</b>", "", `Target: <b>${targetDisplay}</b>`, "", "Kirim ulasan singkat (opsional).", "Ketik <b>-</b> untuk melewati atau <b>BATAL</b> untuk membatalkan."].join("\n");
 }
 
 function getRatingThankYouMessage(targetDisplay, summary) {
-  const lines = [
-    "✅ <b>Rating Tersimpan</b>",
-    "",
-    `Anda telah memberikan rating untuk <b>${targetDisplay}</b>.`,
-  ];
+  const lines = ["✅ <b>Rating Tersimpan</b>", "", `Anda telah memberikan rating untuk <b>${targetDisplay}</b>.`];
 
   if (summary && summary.total > 0) {
-    lines.push(
-      "",
-      `⭐ Rata-rata: <b>${summary.average?.toFixed(2) || "0.00"}</b> dari ${summary.total} penilaian.`
-    );
+    lines.push("", `⭐ Rata-rata: <b>${summary.average?.toFixed(2) || "0.00"}</b> dari ${summary.total} penilaian.`);
   }
-
 
   lines.push("", "Gunakan menu Rating > Beri Rating untuk memberikan penilaian.");
   return lines.join("\n");
 }
 
 function getRatingLookupPromptMessage() {
-  return [
-    "⭐ <b>Check Rating Pengguna</b>",
-    "",
-    "Masukkan username atau nama pengguna yang ingin Anda cek rating-nya.",
-    "Catatan: untuk rating driver gunakan menu Check Driver.",
-    "Ketik <b>BATAL</b> untuk membatalkan.",
-  ].join("\n");
+  return ["⭐ <b>Check Rating Pengguna</b>", "", "Masukkan username atau nama pengguna yang ingin Anda cek rating-nya.", "Catatan: untuk rating driver gunakan menu Check Driver.", "Ketik <b>BATAL</b> untuk membatalkan."].join("\n");
 }
 
 function getRatingLookupResultMessage(query, user, summary, contactUsernames) {
@@ -373,16 +308,10 @@ function getRatingLookupResultMessage(query, user, summary, contactUsernames) {
     ].join("\n");
   }
 
-  const lines = [
-    "⭐ <b>Hasil Check Rating</b>",
-    "",
-    `Pengguna: <b>${user.fullName || "-"}</b> (${formatUsernameDisplay(user.username)})`,
-  ];
+  const lines = ["⭐ <b>Hasil Check Rating</b>", "", `Pengguna: <b>${user.fullName || "-"}</b> (${formatUsernameDisplay(user.username)})`];
 
   if (summary && summary.total > 0) {
-    lines.push(
-      `Rata-rata: <b>${summary.average?.toFixed(2) || "0.00"}</b> dari ${summary.total} penilaian.`
-    );
+    lines.push(`Rata-rata: <b>${summary.average?.toFixed(2) || "0.00"}</b> dari ${summary.total} penilaian.`);
   } else {
     lines.push("Belum ada rating yang tercatat.");
   }
@@ -445,43 +374,21 @@ function getEditPostInstructionMessage(post) {
 }
 
 function getPriceDistancePromptMessage() {
-  return [
-    "💰 <b>Hitung Ongkos</b>",
-    "",
-    "Masukkan jarak tempuh dalam meter (contoh: <code>1500</code>).",
-    "Ketik <b>BATAL</b> untuk membatalkan.",
-  ].join("\n");
+  return ["💰 <b>Hitung Ongkos</b>", "", "Masukkan jarak tempuh dalam meter (contoh: <code>1500</code>).", "Ketik <b>BATAL</b> untuk membatalkan."].join("\n");
 }
 
 function getPriceWeatherPromptMessage(distanceMeters) {
-  return [
-    "🌦️ Apakah saat ini hujan?",
-    "",
-    `Jarak: <b>${distanceMeters} meter</b>`,
-    "",
-    "Pilih salah satu opsi di bawah.",
-  ].join("\n");
+  return ["🌦️ Apakah saat ini hujan?", "", `Jarak: <b>${distanceMeters} meter</b>`, "", "Pilih salah satu opsi di bawah."].join("\n");
 }
 
-function getPriceResultMessage({
-  distance,
-  baseFare,
-  stepFare,
-  steps,
-  isRain,
-  total,
-  baseDistanceMeters,
-  distanceStepMeters,
-  rainSurcharge = 0,
-  nightSurcharge = 0,
-}) {
+function getPriceResultMessage({ distance, baseFare, stepFare, steps, isRain, total, baseDistanceMeters, distanceStepMeters, rainSurcharge = 0, nightSurcharge = 0 }) {
   const lines = [
     "💸 <b>Estimasi Ongkos</b>",
     "",
     `Jarak: <b>${distance} meter</b>`,
     `Kondisi: <b>${isRain ? "Hujan" : "Tidak hujan"}</b>`,
     "",
-    `Biaya dasar (<= ${baseDistanceMeters}m): ${formatCurrency(baseFare)}`,
+    `Biaya dasar (&lt;= ${baseDistanceMeters}m): ${formatCurrency(baseFare)}`,
     `Tambahan ${distanceStepMeters}m setelah ${baseDistanceMeters}m (${steps}x): ${formatCurrency(stepFare * steps)}`,
   ];
 
